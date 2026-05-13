@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useGenerateDocument, useScoreDocument } from "@workspace/api-client-react";
+import { useGenerateDocument, useScoreDocument, usePrepareInterview } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 
 const STEPS = ["Your Profile", "The Job", "Generate", "Result"];
@@ -44,10 +44,12 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [atsScore, setAtsScore] = useState<{ score: number; matched: string[]; missing: string[]; suggestions: string[] } | null>(null);
+  const [interviewQuestions, setInterviewQuestions] = useState<Array<{ question: string; category: string; talkingPoints: string[] }> | null>(null);
 
   const { toast } = useToast();
   const generateDoc = useGenerateDocument();
   const scoreDoc = useScoreDocument();
+  const interviewPrep = usePrepareInterview();
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -61,6 +63,7 @@ export default function Home() {
 
   const handleGenerate = () => {
     setAtsScore(null);
+    setInterviewQuestions(null);
     generateDoc.mutate(
       { data: { docType, tone, ...form } },
       {
@@ -70,6 +73,10 @@ export default function Home() {
           scoreDoc.mutate(
             { data: { document: data.text, jobDesc: form.jobDesc, atsKeywords: form.atsKeywords || undefined } },
             { onSuccess: (s) => setAtsScore(s) }
+          );
+          interviewPrep.mutate(
+            { data: { jobTitle: form.jobTitle, company: form.company, jobDesc: form.jobDesc, techStack: form.techStack, tone, achievements: form.achievements } },
+            { onSuccess: (r) => setInterviewQuestions(r.questions) }
           );
         },
         onError: () => {
@@ -94,9 +101,11 @@ export default function Home() {
     setStep(0);
     setOutput("");
     setAtsScore(null);
+    setInterviewQuestions(null);
     setForm({ name: "", currentRole: "", yearsExp: "", techStack: "", achievements: "", jobTitle: "", company: "", jobDesc: "", atsKeywords: "" });
     generateDoc.reset();
     scoreDoc.reset();
+    interviewPrep.reset();
   };
 
   const can0 = form.name && form.currentRole && form.yearsExp && form.techStack && form.achievements;
@@ -570,6 +579,45 @@ export default function Home() {
               )}
             </div>
 
+            {/* Interview Prep Panel */}
+            <div data-testid="interview-prep-panel" style={{
+              background: "#fff", border: "1px solid #ede9e2", borderRadius: 16,
+              padding: 24, marginBottom: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                <div>
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Interview Prep</div>
+                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600, color: "#1a1a1a" }}>Likely Questions & Talking Points</div>
+                </div>
+                {interviewPrep.isPending && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#bbb" }}>
+                    <span style={{ width: 14, height: 14, border: "2px solid #f0dbb8", borderTopColor: "#d48c3c", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" }} />
+                    Generating…
+                  </div>
+                )}
+              </div>
+
+              {interviewPrep.isPending && (
+                <div style={{ height: 3, background: "#f0ede8", borderRadius: 2, overflow: "hidden", marginBottom: 16 }}>
+                  <div style={{ height: "100%", borderRadius: 2, background: "linear-gradient(90deg, #d48c3c, #e8a84e)", animation: "pulse 1.5s ease-in-out infinite", width: "55%" }} />
+                </div>
+              )}
+
+              {interviewQuestions && interviewQuestions.length > 0 && (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {interviewQuestions.map((q, i) => (
+                    <InterviewCard key={i} index={i} question={q.question} category={q.category} talkingPoints={q.talkingPoints} />
+                  ))}
+                </div>
+              )}
+
+              {!interviewPrep.isPending && !interviewQuestions && (
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#ccc", textAlign: "center", padding: "12px 0" }}>
+                  Interview questions will appear here after generation.
+                </div>
+              )}
+            </div>
+
             {/* Upsell */}
             <div style={{
               background: "linear-gradient(135deg, #1a1a2e, #16213e)",
@@ -607,6 +655,77 @@ export default function Home() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  Technical:   { bg: "#eef3ff", border: "#c7d7fa", text: "#3b5bdb" },
+  Behavioural: { bg: "#fff4e6", border: "#ffd8a8", text: "#c4732a" },
+  Background:  { bg: "#f3faf6", border: "#b8e0cc", text: "#2d7a52" },
+  Motivation:  { bg: "#fdf4ff", border: "#e9b8fa", text: "#9c36b5" },
+};
+
+function InterviewCard({ index, question, category, talkingPoints }: {
+  index: number; question: string; category: string; talkingPoints: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const colors = CATEGORY_COLORS[category] ?? CATEGORY_COLORS.Technical;
+  return (
+    <div
+      data-testid={`interview-card-${index}`}
+      style={{
+        border: "1px solid #ede9e2", borderRadius: 12, overflow: "hidden",
+        transition: "box-shadow 0.18s ease",
+        boxShadow: open ? "0 4px 20px rgba(0,0,0,0.07)" : "0 1px 4px rgba(0,0,0,0.04)",
+      }}
+    >
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          width: "100%", background: open ? "#fdf8f2" : "#fff",
+          border: "none", padding: "14px 18px",
+          display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12,
+          cursor: "pointer", textAlign: "left", transition: "background 0.15s",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, flex: 1 }}>
+          <span style={{
+            fontFamily: "'Playfair Display', serif", fontSize: 13, fontWeight: 700,
+            color: "#d48c3c", flexShrink: 0, minWidth: 20, lineHeight: "22px",
+          }}>{index + 1}.</span>
+          <div style={{ flex: 1 }}>
+            <span style={{
+              display: "inline-block", fontFamily: "'DM Sans', sans-serif", fontSize: 10,
+              fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em",
+              background: colors.bg, border: `1px solid ${colors.border}`,
+              color: colors.text, borderRadius: 5, padding: "2px 7px", marginBottom: 6,
+            }}>{category}</span>
+            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 500, color: "#1a1a1a", lineHeight: 1.5 }}>
+              {question}
+            </div>
+          </div>
+        </div>
+        <span style={{
+          fontFamily: "'DM Sans', sans-serif", fontSize: 18, color: "#d48c3c",
+          flexShrink: 0, lineHeight: 1, marginTop: 2, transition: "transform 0.2s",
+          display: "inline-block", transform: open ? "rotate(180deg)" : "rotate(0deg)",
+        }}>›</span>
+      </button>
+
+      {open && (
+        <div style={{ background: "#fdf8f2", borderTop: "1px solid #f0ede8", padding: "14px 18px 16px 50px" }}>
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#d48c3c", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>
+            Talking Points
+          </div>
+          {talkingPoints.map((pt, j) => (
+            <div key={j} style={{ display: "flex", gap: 10, marginBottom: j < talkingPoints.length - 1 ? 8 : 0 }}>
+              <span style={{ color: "#d48c3c", fontWeight: 700, flexShrink: 0, fontSize: 12, marginTop: 2 }}>→</span>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#444", lineHeight: 1.6 }}>{pt}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

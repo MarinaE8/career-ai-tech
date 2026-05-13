@@ -23,6 +23,8 @@ import type {
   GenerateInput,
   GenerateResult,
   HealthStatus,
+  InterviewPrepInput,
+  InterviewPrepResult,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -280,4 +282,90 @@ export const useScoreDocument = <
   TContext
 > => {
   return useMutation(getScoreDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Generate interview questions with talking points
+ */
+export const getPrepareInterviewUrl = () => {
+  return `/api/interview-prep`;
+};
+
+export const prepareInterview = async (
+  interviewPrepInput: InterviewPrepInput,
+  options?: RequestInit,
+): Promise<InterviewPrepResult> => {
+  return customFetch<InterviewPrepResult>(getPrepareInterviewUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(interviewPrepInput),
+  });
+};
+
+export const getPrepareInterviewMutationOptions = <
+  TError = ErrorType<GenerateError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof prepareInterview>>,
+    TError,
+    { data: BodyType<InterviewPrepInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof prepareInterview>>,
+  TError,
+  { data: BodyType<InterviewPrepInput> },
+  TContext
+> => {
+  const mutationKey = ["prepareInterview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof prepareInterview>>,
+    { data: BodyType<InterviewPrepInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return prepareInterview(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type PrepareInterviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof prepareInterview>>
+>;
+export type PrepareInterviewMutationBody = BodyType<InterviewPrepInput>;
+export type PrepareInterviewMutationError = ErrorType<GenerateError>;
+
+/**
+ * @summary Generate interview questions with talking points
+ */
+export const usePrepareInterview = <
+  TError = ErrorType<GenerateError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof prepareInterview>>,
+    TError,
+    { data: BodyType<InterviewPrepInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof prepareInterview>>,
+  TError,
+  { data: BodyType<InterviewPrepInput> },
+  TContext
+> => {
+  return useMutation(getPrepareInterviewMutationOptions(options));
 };

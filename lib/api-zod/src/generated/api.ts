@@ -58,3 +58,25 @@ export const ScoreDocumentResponse = zod.object({
     .array(zod.string())
     .describe("Specific improvement suggestions"),
 });
+
+/**
+ * @summary Generate interview questions with talking points
+ */
+export const PrepareInterviewBody = zod.object({
+  jobTitle: zod.string(),
+  company: zod.string(),
+  jobDesc: zod.string(),
+  techStack: zod.string(),
+  tone: zod.string(),
+  achievements: zod.string(),
+});
+
+export const PrepareInterviewResponse = zod.object({
+  questions: zod.array(
+    zod.object({
+      question: zod.string(),
+      category: zod.string(),
+      talkingPoints: zod.array(zod.string()),
+    }),
+  ),
+});

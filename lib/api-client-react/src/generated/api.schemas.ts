@@ -33,6 +33,25 @@ export interface GenerateError {
   error: string;
 }
 
+export interface InterviewPrepInput {
+  jobTitle: string;
+  company: string;
+  jobDesc: string;
+  techStack: string;
+  tone: string;
+  achievements: string;
+}
+
+export interface InterviewQuestion {
+  question: string;
+  category: string;
+  talkingPoints: string[];
+}
+
+export interface InterviewPrepResult {
+  questions: InterviewQuestion[];
+}
+
 export interface AtsScoreInput {
   /** The generated career document text */
   document: string;

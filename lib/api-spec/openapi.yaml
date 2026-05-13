@@ -14,6 +14,8 @@ tags:
     description: Career document generation
   - name: ats
     description: ATS score analysis
+  - name: interview
+    description: Interview preparation
 paths:
   /healthz:
     get:
@@ -88,6 +90,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GenerateError"
+  /interview-prep:
+    post:
+      operationId: prepareInterview
+      tags: [interview]
+      summary: Generate interview questions with talking points
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterviewPrepInput"
+      responses:
+        "200":
+          description: Interview questions with talking points
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterviewPrepResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateError"
 components:
   schemas:
     HealthStatus:
@@ -149,6 +181,52 @@ components:
           type: string
       required:
         - error
+    InterviewPrepInput:
+      type: object
+      properties:
+        jobTitle:
+          type: string
+        company:
+          type: string
+        jobDesc:
+          type: string
+        techStack:
+          type: string
+        tone:
+          type: string
+        achievements:
+          type: string
+      required:
+        - jobTitle
+        - company
+        - jobDesc
+        - techStack
+        - tone
+        - achievements
+    InterviewQuestion:
+      type: object
+      properties:
+        question:
+          type: string
+        category:
+          type: string
+        talkingPoints:
+          type: array
+          items:
+            type: string
+      required:
+        - question
+        - category
+        - talkingPoints
+    InterviewPrepResult:
+      type: object
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/InterviewQuestion"
+      required:
+        - questions
     AtsScoreInput:
       type: object
       properties:
