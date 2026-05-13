@@ -4,7 +4,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
-import "@fontsource/jetbrains-mono"; // Assuming we can use fontsource or standard fonts via css
 
 const queryClient = new QueryClient();
 

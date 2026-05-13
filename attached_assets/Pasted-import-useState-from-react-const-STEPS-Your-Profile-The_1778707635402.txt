@@ -1,38 +1,28 @@
-import { useState, useEffect } from "react";
-import { useGenerateDocument } from "@workspace/api-client-react";
-import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 const STEPS = ["Your Profile", "The Job", "Generate", "Result"];
 
 const DOC_TYPES = [
-  { id: "cover", label: "Cover Letter", icon: "✉", desc: "ATS-optimised, tailored to the role" },
+  { id: "cover", label: "Cover Letter", icon: "✉️", desc: "ATS-optimised, tailored to the role" },
   { id: "resume", label: "Resume Summary", icon: "⚡", desc: "Punchy 5-line professional profile" },
-  { id: "linkedin", label: "LinkedIn About", icon: "in", desc: "Human, scroll-stopping, memorable" },
+  { id: "linkedin", label: "LinkedIn About", icon: "💼", desc: "Human, scroll-stopping, memorable" },
 ];
 
 const TONES = [
-  { id: "faang", label: "FAANG-Ready", desc: "Big tech energy, metric-driven" },
-  { id: "startup", label: "Startup Vibe", desc: "Scrappy, fast, ownership mindset" },
-  { id: "senior", label: "Senior / Staff", desc: "Strategic, leadership-focused" },
-  { id: "pivot", label: "Career Pivot", desc: "Transferable skills, new direction" },
+  { id: "faang", label: "FAANG-Ready", emoji: "🏆", desc: "Big tech energy, metric-driven" },
+  { id: "startup", label: "Startup Vibe", emoji: "🚀", desc: "Scrappy, fast, ownership mindset" },
+  { id: "senior", label: "Senior / Staff", emoji: "🧠", desc: "Strategic, leadership-focused" },
+  { id: "pivot", label: "Career Pivot", emoji: "🔄", desc: "Transferable skills, new direction" },
 ];
 
 const ROLES = [
   "Software Engineer", "Senior SWE", "Staff Engineer", "Frontend Engineer",
   "Backend Engineer", "Full-Stack Engineer", "ML/AI Engineer", "Data Engineer",
   "DevOps / SRE", "Platform Engineer", "Engineering Manager", "Product Manager",
-  "Data Scientist", "Security Engineer", "Mobile Engineer", "Other",
+  "Data Scientist", "Security Engineer", "Mobile Engineer", "Other"
 ];
 
-const loadingSteps = [
-  "Reading your profile…",
-  "Matching keywords to the job…",
-  "Crafting your story…",
-  "Polishing every word…",
-  "Almost ready…",
-];
-
-export default function Home() {
+export default function CareerAITech() {
   const [step, setStep] = useState(0);
   const [docType, setDocType] = useState("cover");
   const [tone, setTone] = useState("faang");
@@ -41,53 +31,111 @@ export default function Home() {
     achievements: "", jobTitle: "", company: "", jobDesc: "", atsKeywords: "",
   });
   const [output, setOutput] = useState("");
+  const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
 
-  const { toast } = useToast();
-  const generateDoc = useGenerateDocument();
+  const loadingSteps = [
+    "Reading your profile…",
+    "Matching keywords to the job…",
+    "Crafting your story…",
+    "Polishing every word…",
+    "Almost ready…",
+  ];
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (generateDoc.isPending) {
-      interval = setInterval(() => setLoadingStep((s) => (s + 1) % loadingSteps.length), 1200);
-    }
-    return () => clearInterval(interval);
-  }, [generateDoc.isPending]);
+  const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const update = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const buildPrompt = () => {
+    const toneMap = {
+      faang: "Write like a top FAANG candidate. Strong action verbs (architected, scaled, shipped, drove). Metric-heavy. Confident and results-oriented.",
+      startup: "Write with startup energy. Ownership, bias for action, moving fast, wearing many hats. Human and direct, not corporate.",
+      senior: "Write for senior/staff level. Technical leadership, cross-functional impact, systems thinking, mentorship, strategic vision.",
+      pivot: "Career pivot. Reframe existing experience as transferable. Confident transition, not apologetic.",
+    };
+    const docMap = {
+      cover: `3-paragraph ATS-optimised cover letter:
+- Para 1: Strong hook naming the company and role
+- Para 2: 2-3 achievements with metrics tied to job requirements
+- Para 3: Forward-looking close with CTA
+Format: Greeting, 3 paragraphs, sign-off. Use the real name, no placeholders.`,
+      resume: `4-5 sentence resume summary:
+- Strong identity statement (who, years, specialisation)
+- Key achievements with numbers
+- What they bring to the next role
+No bullets. Flowing sentences. ATS-friendly.`,
+      linkedin: `LinkedIn About in first person:
+- Scroll-stopping hook (NOT "I am passionate about…")
+- What they build and their technical identity
+- Key wins and impact
+- Closing line about what they want next
+Conversational, human, memorable.`,
+    };
 
-  const handleGenerate = () => {
-    generateDoc.mutate(
-      { data: { docType, tone, ...form } },
-      {
-        onSuccess: (data) => {
-          setOutput(data.text);
-          setStep(3);
-        },
-        onError: () => {
-          toast({
-            title: "Generation failed",
-            description: "Something went wrong. Please try again.",
-            variant: "destructive",
-          });
-          setStep(2);
-        },
-      }
-    );
+    return `You are an expert tech career coach helping engineers land jobs at top companies.
+
+TONE: ${toneMap[tone]}
+
+CANDIDATE:
+- Name: ${form.name}
+- Role: ${form.currentRole}
+- Experience: ${form.yearsExp}
+- Stack: ${form.techStack}
+- Achievements: ${form.achievements}
+
+TARGET:
+- Job: ${form.jobTitle} at ${form.company}
+- Description: ${form.jobDesc}
+- Keywords: ${form.atsKeywords || "extract from job description"}
+
+WRITE: ${DOC_TYPES.find(d => d.id === docType)?.label}
+
+INSTRUCTIONS: ${docMap[docType]}
+
+RULES: Never say "I am passionate about" or "leverage" or "synergy". Every claim must feel earned. Mirror job description language for ATS. Sound like a real human.
+
+Write ONLY the document. No commentary.`;
   };
 
-  const handleCopy = () => {
+  const generate = async () => {
+    setLoading(true);
+    setOutput("");
+    setLoadingStep(0);
+    const iv = setInterval(() => setLoadingStep(s => (s + 1) % loadingSteps.length), 1200);
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{ role: "user", content: buildPrompt() }],
+        }),
+      });
+      const data = await res.json();
+      setOutput(data.content?.map(b => b.text || "").join("") || "Something went wrong. Please try again.");
+      setStep(3);
+    } catch {
+      setOutput("Something went wrong. Please try again.");
+      setStep(3);
+    }
+    clearInterval(iv);
+    setLoading(false);
+  };
+
+  const copy = () => {
     navigator.clipboard.writeText(output);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const handleReset = () => {
-    setStep(0);
-    setOutput("");
-    setForm({ name: "", currentRole: "", yearsExp: "", techStack: "", achievements: "", jobTitle: "", company: "", jobDesc: "", atsKeywords: "" });
-    generateDoc.reset();
+  const reset = () => {
+    setStep(0); setOutput("");
+    setForm({ name:"",currentRole:"",yearsExp:"",techStack:"",achievements:"",jobTitle:"",company:"",jobDesc:"",atsKeywords:"" });
   };
 
   const can0 = form.name && form.currentRole && form.yearsExp && form.techStack && form.achievements;
@@ -96,31 +144,39 @@ export default function Home() {
   return (
     <div style={{ minHeight: "100vh", background: "#faf9f7", fontFamily: "'Georgia', 'Times New Roman', serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #faf9f7; }
         ::selection { background: #f0e6d3; }
         input, textarea, select { font-family: 'DM Sans', sans-serif !important; }
         input::placeholder, textarea::placeholder { color: #bbb; }
         input:focus, textarea:focus, select:focus { outline: none; }
-        button { font-family: 'DM Sans', sans-serif; cursor: pointer; }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
-        .fade-up { animation: fadeUp 0.38s ease forwards; }
-        .card-sel { transition: all 0.18s ease; cursor: pointer; }
-        .card-sel:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08) !important; }
-        .btn-primary { transition: all 0.2s ease; }
-        .btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(212,140,60,0.38) !important; }
-        .btn-back { transition: all 0.18s ease; }
-        .btn-back:hover { background: #ece8e2 !important; }
+        button { font-family: 'DM Sans', sans-serif; }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        .fade-up { animation: fadeUp 0.4s ease forwards; }
+        .card-hover { transition: all 0.2s ease; cursor: pointer; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08) !important; }
+        .btn-hover { transition: all 0.2s ease; }
+        .btn-hover:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(212,140,60,0.35) !important; }
+        .back-hover { transition: all 0.2s ease; }
+        .back-hover:hover { background: #f0ede8 !important; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: #e0d8ce; border-radius: 4px; }
       `}</style>
 
       {/* Header */}
       <header style={{
-        background: "rgba(250,249,247,0.96)", backdropFilter: "blur(12px)",
+        background: "rgba(250,249,247,0.95)", backdropFilter: "blur(12px)",
         borderBottom: "1px solid #ede9e2", padding: "0 32px",
         position: "sticky", top: 0, zIndex: 100,
         display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -131,8 +187,7 @@ export default function Home() {
             width: 32, height: 32, borderRadius: 10,
             background: "linear-gradient(135deg, #d48c3c, #c4732a)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 16, color: "#fff", boxShadow: "0 2px 8px rgba(212,140,60,0.3)",
-            fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
+            fontSize: 14, boxShadow: "0 2px 8px rgba(212,140,60,0.3)",
           }}>⚡</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700, color: "#1a1a1a" }}>
             CareerAI<span style={{ color: "#d48c3c" }}>.tech</span>
@@ -143,11 +198,11 @@ export default function Home() {
           color: "#d48c3c", background: "#fdf4e8", border: "1px solid #f0dbb8",
           padding: "5px 12px", borderRadius: 20,
         }}>
-          ATS-Optimised for Tech
+          ✓ ATS-Optimised for Tech
         </div>
       </header>
 
-      {/* Hero — only on step 0 */}
+      {/* Hero */}
       {step === 0 && (
         <div className="fade-up" style={{
           textAlign: "center", padding: "52px 24px 40px",
@@ -160,7 +215,7 @@ export default function Home() {
             borderRadius: 20, padding: "5px 14px", marginBottom: 20,
             fontSize: 12, fontFamily: "'DM Sans', sans-serif", color: "#b06820",
           }}>
-            1,000+ engineers hired this month
+            🔥 1,000+ engineers hired this month
           </div>
           <h1 style={{
             fontFamily: "'Playfair Display', serif",
@@ -178,9 +233,10 @@ export default function Home() {
             AI-powered cover letters, resume summaries, and LinkedIn profiles — tailored to your stack and the exact job you want.
           </p>
           <div style={{ display: "flex", justifyContent: "center", gap: 32, marginTop: 32, flexWrap: "wrap" }}>
-            {[["60 sec", "to generate"], ["98%", "ATS pass rate"], ["FAANG", "ready"]].map(([stat, label]) => (
+            {[["⚡", "60 sec", "to generate"], ["🎯", "98%", "ATS pass rate"], ["💼", "FAANG", "ready"]].map(([icon, stat, label]) => (
               <div key={stat} style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: "#1a1a1a" }}>{stat}</div>
+                <div style={{ fontSize: 20, marginBottom: 2 }}>{icon}</div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: "#1a1a1a" }}>{stat}</div>
                 <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
               </div>
             ))}
@@ -188,7 +244,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* Progress bar */}
+      {/* Progress */}
       <div style={{ background: "#fff", borderBottom: "1px solid #ede9e2", padding: "0 32px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto", display: "flex" }}>
           {STEPS.map((s, i) => (
@@ -212,29 +268,22 @@ export default function Home() {
 
       <main style={{ maxWidth: 640, margin: "0 auto", padding: "40px 24px 80px" }}>
 
-        {/* STEP 0 — Your Profile */}
+        {/* STEP 0 */}
         {step === 0 && (
           <div className="fade-up">
             <SectionHeader step="Step 1 of 3" title="Tell us about yourself" sub="The more detail you add, the more powerful your document." />
 
-            {/* Doc type */}
             <div style={{ marginBottom: 28 }}>
               <FieldLabel>What would you like to create?</FieldLabel>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                {DOC_TYPES.map((d) => (
-                  <div
-                    key={d.id}
-                    data-testid={`doc-type-${d.id}`}
-                    className="card-sel"
-                    onClick={() => setDocType(d.id)}
-                    style={{
-                      padding: "14px 12px", borderRadius: 12, textAlign: "center",
-                      background: docType === d.id ? "#fdf4e8" : "#fff",
-                      border: docType === d.id ? "2px solid #d48c3c" : "2px solid #ede9e2",
-                      boxShadow: docType === d.id ? "0 4px 16px rgba(212,140,60,0.12)" : "0 2px 8px rgba(0,0,0,0.04)",
-                    }}
-                  >
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 700, color: docType === d.id ? "#c4732a" : "#333", marginBottom: 4 }}>{d.icon}</div>
+                {DOC_TYPES.map(d => (
+                  <div key={d.id} className="card-hover" onClick={() => setDocType(d.id)} style={{
+                    padding: "14px 12px", borderRadius: 12, textAlign: "center",
+                    background: docType === d.id ? "#fdf4e8" : "#fff",
+                    border: docType === d.id ? "2px solid #d48c3c" : "2px solid #ede9e2",
+                    boxShadow: docType === d.id ? "0 4px 16px rgba(212,140,60,0.12)" : "0 2px 8px rgba(0,0,0,0.04)",
+                  }}>
+                    <div style={{ fontSize: 22, marginBottom: 6 }}>{d.icon}</div>
                     <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600, color: docType === d.id ? "#c4732a" : "#333", marginBottom: 3 }}>{d.label}</div>
                     <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#aaa", lineHeight: 1.4 }}>{d.desc}</div>
                   </div>
@@ -242,93 +291,70 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Profile fields */}
             <div style={{ display: "grid", gap: 18 }}>
-              <TextField label="Your Full Name" value={form.name} onChange={(v) => update("name", v)} placeholder="e.g. Jordan Chen" testId="input-name" />
+              <TextField label="Your Full Name" value={form.name} onChange={v => update("name", v)} placeholder="e.g. Jordan Chen" />
               <div>
                 <FieldLabel>Your Current / Target Role</FieldLabel>
-                <select
-                  data-testid="select-role"
-                  value={form.currentRole}
-                  onChange={(e) => update("currentRole", e.target.value)}
-                  style={selectSt}
-                >
+                <select value={form.currentRole} onChange={e => update("currentRole", e.target.value)} style={selectSt}>
                   <option value="">Select your role…</option>
-                  {ROLES.map((r) => <option key={r}>{r}</option>)}
+                  {ROLES.map(r => <option key={r}>{r}</option>)}
                 </select>
               </div>
-              <TextField label="Years of Experience" value={form.yearsExp} onChange={(v) => update("yearsExp", v)} placeholder="e.g. 6 years" testId="input-years" />
-              <TextField label="Your Tech Stack" value={form.techStack} onChange={(v) => update("techStack", v)} placeholder="e.g. React, TypeScript, Node.js, PostgreSQL, AWS, Docker" multiline rows={2} testId="input-stack" />
-              <TextField
-                label="Your Top 2–3 Achievements (with numbers)"
-                value={form.achievements}
-                onChange={(v) => update("achievements", v)}
+              <TextField label="Years of Experience" value={form.yearsExp} onChange={v => update("yearsExp", v)} placeholder="e.g. 6 years" />
+              <TextField label="Your Tech Stack" value={form.techStack} onChange={v => update("techStack", v)}
+                placeholder="e.g. React, TypeScript, Node.js, PostgreSQL, AWS, Docker" multiline rows={2} />
+              <TextField label="Your Top 2–3 Achievements (with numbers)" value={form.achievements} onChange={v => update("achievements", v)}
                 placeholder={"e.g. Reduced API latency by 60% for 2M users\nLed migration cutting deploy time from 4h to 12min\nBuilt tooling used by 40 engineers daily"}
-                multiline rows={4}
-                testId="input-achievements"
-              />
+                multiline rows={4} />
             </div>
 
-            <PrimaryButton onClick={() => setStep(1)} disabled={!can0} testId="button-next-step1">
-              Continue to Job Details →
-            </PrimaryButton>
+            <PrimaryButton onClick={() => setStep(1)} disabled={!can0}>Continue to Job Details →</PrimaryButton>
             {!can0 && <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#ccc", textAlign: "center", marginTop: 10 }}>Fill in all fields to continue</p>}
           </div>
         )}
 
-        {/* STEP 1 — The Job */}
+        {/* STEP 1 */}
         {step === 1 && (
           <div className="fade-up">
             <SectionHeader step="Step 2 of 3" title="Tell us about the job" sub="Paste from the listing — we'll match your language to beat the ATS filter." />
 
             <div style={{ display: "grid", gap: 18 }}>
-              <TextField label="Job Title" value={form.jobTitle} onChange={(v) => update("jobTitle", v)} placeholder="e.g. Staff Software Engineer" testId="input-job-title" />
-              <TextField label="Company Name" value={form.company} onChange={(v) => update("company", v)} placeholder="e.g. Stripe" testId="input-company" />
-              <TextField
-                label="Job Description"
-                value={form.jobDesc}
-                onChange={(v) => update("jobDesc", v)}
-                placeholder={"Paste the key bullet points or requirements from the job listing here.\n\nThe more you give us, the better the ATS match."}
-                multiline rows={6}
-                testId="input-job-desc"
-              />
-              <TextField label="Extra Keywords to Include (optional)" value={form.atsKeywords} onChange={(v) => update("atsKeywords", v)} placeholder="e.g. distributed systems, gRPC, CI/CD, system design" testId="input-keywords" />
+              <TextField label="Job Title" value={form.jobTitle} onChange={v => update("jobTitle", v)} placeholder="e.g. Staff Software Engineer" />
+              <TextField label="Company Name" value={form.company} onChange={v => update("company", v)} placeholder="e.g. Stripe" />
+              <TextField label="Job Description" value={form.jobDesc} onChange={v => update("jobDesc", v)}
+                placeholder={"Paste the key bullet points or requirements from the job listing here.\n\nThe more you give us, the better the ATS match."} multiline rows={6} />
+              <TextField label="Extra Keywords to Include (optional)" value={form.atsKeywords} onChange={v => update("atsKeywords", v)}
+                placeholder="e.g. distributed systems, gRPC, CI/CD, system design" />
             </div>
 
-            {/* Tone */}
             <div style={{ marginTop: 28 }}>
               <FieldLabel>Choose your tone & positioning</FieldLabel>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {TONES.map((t) => (
-                  <div
-                    key={t.id}
-                    data-testid={`tone-${t.id}`}
-                    className="card-sel"
-                    onClick={() => setTone(t.id)}
-                    style={{
-                      padding: "14px 16px", borderRadius: 12,
-                      background: tone === t.id ? "#fdf4e8" : "#fff",
-                      border: tone === t.id ? "2px solid #d48c3c" : "2px solid #ede9e2",
-                      boxShadow: tone === t.id ? "0 4px 16px rgba(212,140,60,0.12)" : "0 2px 8px rgba(0,0,0,0.04)",
-                    }}
-                  >
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: tone === t.id ? "#c4732a" : "#222", marginBottom: 4 }}>{t.label}</div>
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#999" }}>{t.desc}</div>
+                {TONES.map(t => (
+                  <div key={t.id} className="card-hover" onClick={() => setTone(t.id)} style={{
+                    padding: "14px 16px", borderRadius: 12,
+                    background: tone === t.id ? "#fdf4e8" : "#fff",
+                    border: tone === t.id ? "2px solid #d48c3c" : "2px solid #ede9e2",
+                    boxShadow: tone === t.id ? "0 4px 16px rgba(212,140,60,0.12)" : "0 2px 8px rgba(0,0,0,0.04)",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                      <span style={{ fontSize: 18 }}>{t.emoji}</span>
+                      <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: tone === t.id ? "#c4732a" : "#222" }}>{t.label}</span>
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#999", paddingLeft: 26 }}>{t.desc}</div>
                   </div>
                 ))}
               </div>
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 32 }}>
-              <button data-testid="button-back-step0" onClick={() => setStep(0)} className="btn-back" style={backBtnSt}>← Back</button>
-              <PrimaryButton onClick={() => setStep(2)} disabled={!can1} style={{ flex: 1, marginTop: 0 }} testId="button-next-step2">
-                Review & Generate →
-              </PrimaryButton>
+              <button onClick={() => setStep(0)} className="back-hover" style={backBtnSt}>← Back</button>
+              <PrimaryButton onClick={() => setStep(2)} disabled={!can1} style={{ flex: 1, marginTop: 0 }}>Review & Generate →</PrimaryButton>
             </div>
           </div>
         )}
 
-        {/* STEP 2 — Review / Generate */}
+        {/* STEP 2 */}
         {step === 2 && (
           <div className="fade-up">
             <SectionHeader step="Step 3 of 3" title="Ready to generate" sub="Everything looks good? Hit the button and we'll craft your document." />
@@ -337,15 +363,15 @@ export default function Home() {
               background: "#fff", border: "1px solid #ede9e2", borderRadius: 16,
               padding: 24, marginBottom: 28, boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
             }}>
-              {([
-                ["Document", DOC_TYPES.find((d) => d.id === docType)?.label],
-                ["Tone", TONES.find((t) => t.id === tone)?.label],
+              {[
+                ["Document", DOC_TYPES.find(d => d.id === docType)?.label + " " + DOC_TYPES.find(d => d.id === docType)?.icon],
+                ["Tone", TONES.find(t => t.id === tone)?.emoji + " " + TONES.find(t => t.id === tone)?.label],
                 ["Name", form.name],
                 ["Role", form.currentRole],
                 ["Experience", form.yearsExp],
                 ["Stack", form.techStack?.slice(0, 70) + (form.techStack?.length > 70 ? "…" : "")],
-                ["Applying to", `${form.jobTitle} at ${form.company}`],
-              ] as [string, string | undefined][]).filter(([, v]) => v).map(([k, v]) => (
+                ["Applying to", form.jobTitle + " at " + form.company],
+              ].filter(([, v]) => v).map(([k, v]) => (
                 <div key={k} style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 12 }}>
                   <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#bbb", minWidth: 88, textTransform: "uppercase", letterSpacing: "0.08em", paddingTop: 2, fontWeight: 500 }}>{k}</span>
                   <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#333", fontWeight: 500 }}>{v}</span>
@@ -354,23 +380,18 @@ export default function Home() {
             </div>
 
             <div style={{ display: "flex", gap: 10 }}>
-              <button data-testid="button-back-step1" onClick={() => setStep(1)} className="btn-back" style={backBtnSt}>← Back</button>
-              <PrimaryButton
-                onClick={handleGenerate}
-                disabled={generateDoc.isPending}
-                style={{ flex: 1, marginTop: 0 }}
-                testId="button-generate"
-              >
-                {generateDoc.isPending ? (
+              <button onClick={() => setStep(1)} className="back-hover" style={backBtnSt}>← Back</button>
+              <PrimaryButton onClick={generate} disabled={loading} style={{ flex: 1, marginTop: 0 }}>
+                {loading ? (
                   <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
                     <span style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" }} />
                     {loadingSteps[loadingStep]}
                   </span>
-                ) : "Generate My Document"}
+                ) : "✨ Generate My Document"}
               </PrimaryButton>
             </div>
 
-            {generateDoc.isPending && (
+            {loading && (
               <div style={{ marginTop: 20 }}>
                 <div style={{ height: 3, background: "#f0ede8", borderRadius: 2, overflow: "hidden" }}>
                   <div style={{ height: "100%", borderRadius: 2, background: "linear-gradient(90deg, #d48c3c, #e8a84e)", animation: "pulse 1.5s ease-in-out infinite", width: "70%" }} />
@@ -381,10 +402,9 @@ export default function Home() {
           </div>
         )}
 
-        {/* STEP 3 — Result */}
+        {/* STEP 3 */}
         {step === 3 && (
           <div className="fade-up">
-            {/* Success banner */}
             <div style={{
               background: "linear-gradient(135deg, #fdf4e8, #fef9f2)",
               border: "1px solid #f0dbb8", borderRadius: 14,
@@ -399,62 +419,38 @@ export default function Home() {
               }}>✓</div>
               <div>
                 <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 600, color: "#1a1a1a", marginBottom: 2 }}>
-                  Your {DOC_TYPES.find((d) => d.id === docType)?.label} is ready!
+                  Your {DOC_TYPES.find(d => d.id === docType)?.label} is ready!
                 </div>
                 <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#b06820" }}>
-                  Tailored for {form.company} · {TONES.find((t) => t.id === tone)?.label} tone · ATS-optimised
+                  Tailored for {form.company} · {TONES.find(t => t.id === tone)?.label} tone · ATS-optimised ✓
                 </div>
               </div>
             </div>
 
-            {/* Output text */}
-            <div
-              data-testid="output-text"
-              style={{
-                background: "#fff", border: "1px solid #ede9e2", borderRadius: 16,
-                padding: 28, marginBottom: 18, boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
-                fontSize: 14, lineHeight: 1.85, color: "#333",
-                whiteSpace: "pre-wrap", fontFamily: "'Georgia', serif", minHeight: 200,
-              }}
-            >
+            <div style={{
+              background: "#fff", border: "1px solid #ede9e2", borderRadius: 16,
+              padding: 28, marginBottom: 18, boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+              fontSize: 14, lineHeight: 1.85, color: "#333",
+              whiteSpace: "pre-wrap", fontFamily: "'Georgia', serif", minHeight: 200,
+            }}>
               {output}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
-              <button
-                data-testid="button-copy"
-                onClick={handleCopy}
-                className="btn-primary"
-                style={{
-                  padding: "13px 20px", borderRadius: 10,
-                  background: copied ? "linear-gradient(135deg, #4caf7d, #3d9669)" : "linear-gradient(135deg, #d48c3c, #c4732a)",
-                  border: "none", color: "#fff",
-                  fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
-                  boxShadow: copied ? "0 4px 16px rgba(76,175,125,0.3)" : "0 4px 16px rgba(212,140,60,0.3)",
-                  transition: "all 0.25s",
-                }}
-              >
-                {copied ? "Copied!" : "Copy Text"}
+              <button onClick={copy} className="btn-hover" style={{
+                padding: "13px 20px", borderRadius: 10, cursor: "pointer",
+                background: copied ? "linear-gradient(135deg, #4caf7d, #3d9669)" : "linear-gradient(135deg, #d48c3c, #c4732a)",
+                border: "none", color: "#fff",
+                fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
+                boxShadow: copied ? "0 4px 16px rgba(76,175,125,0.3)" : "0 4px 16px rgba(212,140,60,0.3)",
+                transition: "all 0.25s",
+              }}>
+                {copied ? "✓ Copied!" : "📋 Copy Text"}
               </button>
-              <button
-                data-testid="button-redo"
-                onClick={() => { setStep(2); setOutput(""); generateDoc.reset(); }}
-                className="btn-back"
-                style={backBtnSt}
-              >
-                Redo
-              </button>
-              <button
-                data-testid="button-new-doc"
-                onClick={handleReset}
-                className="btn-back"
-                style={backBtnSt}
-              >
-                New Doc
-              </button>
+              <button onClick={() => { setStep(2); setOutput(""); }} className="back-hover" style={backBtnSt}>🔄 Redo</button>
+              <button onClick={reset} className="back-hover" style={backBtnSt}>✦ New Doc</button>
             </div>
 
-            {/* Upsell */}
             <div style={{
               background: "linear-gradient(135deg, #1a1a2e, #16213e)",
               borderRadius: 16, padding: 24, boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
@@ -467,7 +463,7 @@ export default function Home() {
                     borderRadius: 20, padding: "3px 10px", marginBottom: 10,
                     fontSize: 10, fontFamily: "'DM Sans', sans-serif", color: "#d48c3c",
                     fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase",
-                  }}>Pro Plan</div>
+                  }}>⭐ Pro Plan</div>
                   <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, color: "#fff", fontWeight: 600, marginBottom: 8 }}>Unlock everything</div>
                   <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#888", lineHeight: 1.8 }}>
                     Unlimited documents · ATS score checker<br />
@@ -479,7 +475,7 @@ export default function Home() {
                   <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 700, color: "#d48c3c" }}>$29</div>
                   <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#666", marginBottom: 12 }}>per month</div>
                   <button style={{
-                    padding: "11px 22px", borderRadius: 10,
+                    padding: "11px 22px", borderRadius: 10, cursor: "pointer",
                     background: "linear-gradient(135deg, #d48c3c, #c4732a)",
                     border: "none", color: "#fff",
                     fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600,
@@ -495,7 +491,7 @@ export default function Home() {
   );
 }
 
-function SectionHeader({ step, title, sub }: { step: string; title: string; sub?: string }) {
+function SectionHeader({ step, title, sub }) {
   return (
     <div style={{ marginBottom: 32 }}>
       <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#d48c3c", letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 8 }}>{step}</div>
@@ -505,90 +501,57 @@ function SectionHeader({ step, title, sub }: { step: string; title: string; sub?
   );
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+function FieldLabel({ children }) {
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>{children}</div>
   );
 }
 
-function TextField({ label, value, onChange, placeholder, multiline, rows = 3, testId }: {
-  label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; multiline?: boolean; rows?: number; testId?: string;
-}) {
+function TextField({ label, value, onChange, placeholder, multiline, rows = 3 }) {
   const [focused, setFocused] = useState(false);
-  const base: React.CSSProperties = {
-    width: "100%",
-    background: focused ? "#fff" : "#faf9f7",
+  const base = {
+    width: "100%", background: focused ? "#fff" : "#faf9f7",
     border: focused ? "2px solid #d48c3c" : "2px solid #ede9e2",
     borderRadius: 10, padding: "12px 16px", color: "#222", fontSize: 14,
-    resize: "vertical" as const, lineHeight: 1.6, transition: "all 0.2s",
+    resize: "vertical", lineHeight: 1.6, transition: "all 0.2s",
     boxShadow: focused ? "0 0 0 4px rgba(212,140,60,0.08)" : "none",
   };
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
-      {multiline ? (
-        <textarea
-          data-testid={testId}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          rows={rows}
-          style={base}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-        />
-      ) : (
-        <input
-          data-testid={testId}
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          style={{ ...base, height: 46 }}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-        />
-      )}
+      {multiline
+        ? <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={rows} style={base} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
+        : <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ ...base, height: 46 }} onFocus={() => setFocused(true)} onBlur={() => setFocused(false)} />
+      }
     </div>
   );
 }
 
-function PrimaryButton({ children, onClick, disabled, style = {}, testId }: {
-  children: React.ReactNode; onClick: () => void; disabled?: boolean;
-  style?: React.CSSProperties; testId?: string;
-}) {
+function PrimaryButton({ children, onClick, disabled, style = {} }) {
   return (
-    <button
-      data-testid={testId}
-      onClick={onClick}
-      disabled={disabled}
-      className={disabled ? "" : "btn-primary"}
-      style={{
-        marginTop: 28, width: "100%", padding: "15px 24px",
-        background: disabled ? "#f0ede8" : "linear-gradient(135deg, #d48c3c, #c4732a)",
-        border: "none", borderRadius: 12, color: disabled ? "#ccc" : "#fff",
-        fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600,
-        cursor: disabled ? "not-allowed" : "pointer",
-        boxShadow: disabled ? "none" : "0 4px 20px rgba(212,140,60,0.35)",
-        letterSpacing: "0.01em", transition: "all 0.2s", ...style,
-      }}
-    >
+    <button onClick={onClick} disabled={disabled} className={disabled ? "" : "btn-hover"} style={{
+      marginTop: 28, width: "100%", padding: "15px 24px",
+      background: disabled ? "#f0ede8" : "linear-gradient(135deg, #d48c3c, #c4732a)",
+      border: "none", borderRadius: 12, color: disabled ? "#ccc" : "#fff",
+      fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 600,
+      cursor: disabled ? "not-allowed" : "pointer",
+      boxShadow: disabled ? "none" : "0 4px 20px rgba(212,140,60,0.35)",
+      letterSpacing: "0.01em", transition: "all 0.2s", ...style,
+    }}>
       {children}
     </button>
   );
 }
 
-const selectSt: React.CSSProperties = {
+const selectSt = {
   width: "100%", background: "#faf9f7", border: "2px solid #ede9e2",
   borderRadius: 10, padding: "12px 16px", color: "#222", fontSize: 14,
   height: 48, cursor: "pointer", appearance: "none",
   backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23d48c3c' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
-  backgroundRepeat: "no-repeat", backgroundPosition: "right 16px center",
-  fontFamily: "'DM Sans', sans-serif", transition: "all 0.2s",
+  backgroundRepeat: "no-repeat", backgroundPosition: "right 16px center", transition: "all 0.2s",
 };
 
-const backBtnSt: React.CSSProperties = {
+const backBtnSt = {
   padding: "12px 18px", borderRadius: 10, cursor: "pointer",
   background: "#f5f2ee", border: "2px solid #ede9e2",
   color: "#888", fontFamily: "'DM Sans', sans-serif",
