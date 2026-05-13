@@ -4,6 +4,7 @@ import generateRouter from "./generate/index";
 import atsRouter from "./ats/index";
 import interviewRouter from "./interview/index";
 import salaryRouter from "./salary/index";
+import githubRouter from "./github/index";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(generateRouter);
 router.use(atsRouter);
 router.use(interviewRouter);
 router.use(salaryRouter);
+router.use(githubRouter);
 
 export default router;

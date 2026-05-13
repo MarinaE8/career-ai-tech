@@ -22,6 +22,8 @@ import type {
   GenerateError,
   GenerateInput,
   GenerateResult,
+  GithubProfileInput,
+  GithubProfileResult,
   HealthStatus,
   InterviewPrepInput,
   InterviewPrepResult,
@@ -370,6 +372,92 @@ export const usePrepareInterview = <
   TContext
 > => {
   return useMutation(getPrepareInterviewMutationOptions(options));
+};
+
+/**
+ * @summary Generate GitHub profile optimization suggestions
+ */
+export const getOptimizeGithubProfileUrl = () => {
+  return `/api/github-profile`;
+};
+
+export const optimizeGithubProfile = async (
+  githubProfileInput: GithubProfileInput,
+  options?: RequestInit,
+): Promise<GithubProfileResult> => {
+  return customFetch<GithubProfileResult>(getOptimizeGithubProfileUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(githubProfileInput),
+  });
+};
+
+export const getOptimizeGithubProfileMutationOptions = <
+  TError = ErrorType<GenerateError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof optimizeGithubProfile>>,
+    TError,
+    { data: BodyType<GithubProfileInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof optimizeGithubProfile>>,
+  TError,
+  { data: BodyType<GithubProfileInput> },
+  TContext
+> => {
+  const mutationKey = ["optimizeGithubProfile"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof optimizeGithubProfile>>,
+    { data: BodyType<GithubProfileInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return optimizeGithubProfile(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type OptimizeGithubProfileMutationResult = NonNullable<
+  Awaited<ReturnType<typeof optimizeGithubProfile>>
+>;
+export type OptimizeGithubProfileMutationBody = BodyType<GithubProfileInput>;
+export type OptimizeGithubProfileMutationError = ErrorType<GenerateError>;
+
+/**
+ * @summary Generate GitHub profile optimization suggestions
+ */
+export const useOptimizeGithubProfile = <
+  TError = ErrorType<GenerateError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof optimizeGithubProfile>>,
+    TError,
+    { data: BodyType<GithubProfileInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof optimizeGithubProfile>>,
+  TError,
+  { data: BodyType<GithubProfileInput> },
+  TContext
+> => {
+  return useMutation(getOptimizeGithubProfileMutationOptions(options));
 };
 
 /**

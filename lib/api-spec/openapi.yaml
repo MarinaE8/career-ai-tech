@@ -18,6 +18,8 @@ tags:
     description: Interview preparation
   - name: salary
     description: Salary negotiation scripts
+  - name: github
+    description: GitHub profile optimization
 paths:
   /healthz:
     get:
@@ -110,6 +112,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InterviewPrepResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateError"
+  /github-profile:
+    post:
+      operationId: optimizeGithubProfile
+      tags: [github]
+      summary: Generate GitHub profile optimization suggestions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GithubProfileInput"
+      responses:
+        "200":
+          description: GitHub profile optimization
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GithubProfileResult"
         "400":
           description: Bad request
           content:
@@ -300,6 +332,66 @@ components:
         - matched
         - missing
         - suggestions
+    GithubProfileInput:
+      type: object
+      properties:
+        githubUsername:
+          type: string
+        jobTitle:
+          type: string
+        company:
+          type: string
+        techStack:
+          type: string
+        achievements:
+          type: string
+        tone:
+          type: string
+      required:
+        - githubUsername
+        - jobTitle
+        - company
+        - techStack
+        - achievements
+        - tone
+    PinnedRepoSuggestion:
+      type: object
+      properties:
+        type:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+      required:
+        - type
+        - name
+        - description
+    GithubProfileResult:
+      type: object
+      properties:
+        profileBio:
+          type: string
+        readmeHero:
+          type: string
+        pinnedRepoSuggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PinnedRepoSuggestion"
+        profileTips:
+          type: array
+          items:
+            type: string
+        topicsToAdd:
+          type: array
+          items:
+            type: string
+      required:
+        - profileBio
+        - readmeHero
+        - pinnedRepoSuggestions
+        - profileTips
+        - topicsToAdd
     SalaryNegotiationInput:
       type: object
       properties:

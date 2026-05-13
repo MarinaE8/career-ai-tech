@@ -82,6 +82,32 @@ export const PrepareInterviewResponse = zod.object({
 });
 
 /**
+ * @summary Generate GitHub profile optimization suggestions
+ */
+export const OptimizeGithubProfileBody = zod.object({
+  githubUsername: zod.string(),
+  jobTitle: zod.string(),
+  company: zod.string(),
+  techStack: zod.string(),
+  achievements: zod.string(),
+  tone: zod.string(),
+});
+
+export const OptimizeGithubProfileResponse = zod.object({
+  profileBio: zod.string(),
+  readmeHero: zod.string(),
+  pinnedRepoSuggestions: zod.array(
+    zod.object({
+      type: zod.string(),
+      name: zod.string(),
+      description: zod.string(),
+    }),
+  ),
+  profileTips: zod.array(zod.string()),
+  topicsToAdd: zod.array(zod.string()),
+});
+
+/**
  * @summary Generate a salary negotiation playbook
  */
 export const SalaryNegotiationBody = zod.object({

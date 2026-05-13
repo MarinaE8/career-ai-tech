@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useGenerateDocument, useScoreDocument, usePrepareInterview, useSalaryNegotiation } from "@workspace/api-client-react";
+import { useGenerateDocument, useScoreDocument, usePrepareInterview, useSalaryNegotiation, useOptimizeGithubProfile } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 
 const STEPS = ["Your Profile", "The Job", "Generate", "Result"];
@@ -39,7 +39,7 @@ export default function Home() {
   const [form, setForm] = useState({
     name: "", currentRole: "", yearsExp: "", techStack: "",
     achievements: "", jobTitle: "", company: "", jobDesc: "", atsKeywords: "",
-    currentSalary: "", targetSalary: "",
+    currentSalary: "", targetSalary: "", githubUsername: "",
   });
   const [output, setOutput] = useState("");
   const [copied, setCopied] = useState(false);
@@ -50,12 +50,18 @@ export default function Home() {
     opening: string; anchoring: string; counteroffer: string;
     batna: string; equityAngle: string; closingLines: string[]; doNots: string[];
   } | null>(null);
+  const [githubProfile, setGithubProfile] = useState<{
+    profileBio: string; readmeHero: string;
+    pinnedRepoSuggestions: Array<{ type: string; name: string; description: string }>;
+    profileTips: string[]; topicsToAdd: string[];
+  } | null>(null);
 
   const { toast } = useToast();
   const generateDoc = useGenerateDocument();
   const scoreDoc = useScoreDocument();
   const interviewPrep = usePrepareInterview();
   const salaryNeg = useSalaryNegotiation();
+  const githubOpt = useOptimizeGithubProfile();
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -71,6 +77,7 @@ export default function Home() {
     setAtsScore(null);
     setInterviewQuestions(null);
     setSalaryPlaybook(null);
+    setGithubProfile(null);
     generateDoc.mutate(
       { data: { docType, tone, ...form } },
       {
@@ -89,6 +96,12 @@ export default function Home() {
             salaryNeg.mutate(
               { data: { jobTitle: form.jobTitle, company: form.company, yearsExp: form.yearsExp, techStack: form.techStack, currentSalary: form.currentSalary || undefined, targetSalary: form.targetSalary, jobDesc: form.jobDesc, tone } },
               { onSuccess: (p) => setSalaryPlaybook(p) }
+            );
+          }
+          if (form.githubUsername) {
+            githubOpt.mutate(
+              { data: { githubUsername: form.githubUsername, jobTitle: form.jobTitle, company: form.company, techStack: form.techStack, achievements: form.achievements, tone } },
+              { onSuccess: (g) => setGithubProfile(g) }
             );
           }
         },
@@ -116,11 +129,13 @@ export default function Home() {
     setAtsScore(null);
     setInterviewQuestions(null);
     setSalaryPlaybook(null);
-    setForm({ name: "", currentRole: "", yearsExp: "", techStack: "", achievements: "", jobTitle: "", company: "", jobDesc: "", atsKeywords: "", currentSalary: "", targetSalary: "" });
+    setGithubProfile(null);
+    setForm({ name: "", currentRole: "", yearsExp: "", techStack: "", achievements: "", jobTitle: "", company: "", jobDesc: "", atsKeywords: "", currentSalary: "", targetSalary: "", githubUsername: "" });
     generateDoc.reset();
     scoreDoc.reset();
     interviewPrep.reset();
     salaryNeg.reset();
+    githubOpt.reset();
   };
 
   const can0 = form.name && form.currentRole && form.yearsExp && form.techStack && form.achievements;
@@ -334,6 +349,19 @@ export default function Home() {
                 </div>
                 <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#bbb", marginTop: 8, lineHeight: 1.5 }}>
                   Add a target to get a personalised negotiation playbook alongside your document.
+                </p>
+              </div>
+              <div style={{ borderTop: "1px dashed #ede9e2", paddingTop: 18 }}>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>GitHub Profile (optional)</div>
+                <TextField
+                  label="Your GitHub Username"
+                  value={form.githubUsername}
+                  onChange={(v) => update("githubUsername", v)}
+                  placeholder="e.g. jordanchen"
+                  testId="input-github"
+                />
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#bbb", marginTop: 8, lineHeight: 1.5 }}>
+                  Add your username to get a tailored bio, README hero, pinned repo ideas, and discoverability tips.
                 </p>
               </div>
             </div>
@@ -720,6 +748,123 @@ export default function Home() {
               </div>
             )}
 
+            {/* GitHub Profile Panel */}
+            {(githubOpt.isPending || githubProfile || form.githubUsername) && (
+              <div data-testid="github-panel" style={{
+                background: "#fff", border: "1px solid #ede9e2", borderRadius: 16,
+                padding: 24, marginBottom: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                  <div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>GitHub Profile</div>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600, color: "#1a1a1a" }}>Profile Optimizer</div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {githubOpt.isPending && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#bbb" }}>
+                        <span style={{ width: 14, height: 14, border: "2px solid #f0dbb8", borderTopColor: "#d48c3c", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" }} />
+                        Generating…
+                      </div>
+                    )}
+                    {form.githubUsername && (
+                      <a
+                        href={`https://github.com/${form.githubUsername}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#d48c3c", textDecoration: "none", fontWeight: 600 }}
+                      >
+                        @{form.githubUsername} ↗
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {githubOpt.isPending && (
+                  <div style={{ height: 3, background: "#f0ede8", borderRadius: 2, overflow: "hidden", marginBottom: 16 }}>
+                    <div style={{ height: "100%", borderRadius: 2, background: "linear-gradient(90deg, #d48c3c, #e8a84e)", animation: "pulse 1.5s ease-in-out infinite", width: "55%" }} />
+                  </div>
+                )}
+
+                {githubProfile && (
+                  <div style={{ display: "grid", gap: 14 }}>
+                    {/* Bio */}
+                    <GithubCopyBlock
+                      label="Profile Bio"
+                      icon="👤"
+                      accent="#3b5bdb"
+                      content={githubProfile.profileBio}
+                      mono
+                      hint={`${githubProfile.profileBio.length}/160 chars`}
+                    />
+
+                    {/* README Hero */}
+                    <GithubCopyBlock
+                      label="README Hero Section"
+                      icon="📄"
+                      accent="#2d7a52"
+                      content={githubProfile.readmeHero}
+                    />
+
+                    {/* Pinned repos */}
+                    <div style={{ background: "#faf9f7", border: "1px solid #ede9e2", borderRadius: 12, padding: "16px 18px", borderLeft: "3px solid #c4732a" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                        <span style={{ fontSize: 14 }}>📌</span>
+                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "#c4732a", textTransform: "uppercase", letterSpacing: "0.09em" }}>Pinned Repo Ideas</span>
+                      </div>
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {githubProfile.pinnedRepoSuggestions.map((r, i) => (
+                          <div key={i} style={{ background: "#fff", border: "1px solid #ede9e2", borderRadius: 8, padding: "12px 14px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, fontWeight: 600, color: "#999", background: "#f5f3ef", borderRadius: 4, padding: "2px 6px", textTransform: "uppercase", letterSpacing: "0.07em" }}>{r.type}</span>
+                              <code style={{ fontFamily: "monospace", fontSize: 12, color: "#3b5bdb", fontWeight: 600 }}>{r.name}</code>
+                            </div>
+                            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#555", lineHeight: 1.6, margin: 0 }}>{r.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Topics */}
+                    <div style={{ background: "#faf9f7", border: "1px solid #ede9e2", borderRadius: 12, padding: "16px 18px", borderLeft: "3px solid #1a7a6e" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                        <span style={{ fontSize: 14 }}>🏷</span>
+                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "#1a7a6e", textTransform: "uppercase", letterSpacing: "0.09em" }}>Topics to Add to Your Repos</span>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                        {githubProfile.topicsToAdd.map((t, i) => (
+                          <span key={i} style={{
+                            fontFamily: "monospace", fontSize: 12, color: "#1a7a6e",
+                            background: "#edf7f5", border: "1px solid #b8e0d8",
+                            borderRadius: 6, padding: "4px 10px",
+                          }}>{t}</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Tips */}
+                    <div style={{ background: "#faf9f7", border: "1px solid #ede9e2", borderRadius: 12, padding: "16px 18px", borderLeft: "3px solid #9c36b5" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                        <span style={{ fontSize: 14 }}>💡</span>
+                        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "#9c36b5", textTransform: "uppercase", letterSpacing: "0.09em" }}>Profile Tips</span>
+                      </div>
+                      {githubProfile.profileTips.map((tip, i) => (
+                        <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < githubProfile.profileTips.length - 1 ? 10 : 0 }}>
+                          <span style={{ color: "#9c36b5", fontWeight: 700, flexShrink: 0, fontSize: 12, marginTop: 2 }}>{i + 1}.</span>
+                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#444", lineHeight: 1.6 }}>{tip}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {!githubOpt.isPending && !githubProfile && form.githubUsername && (
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#ccc", textAlign: "center", padding: "12px 0" }}>
+                    GitHub optimization will appear here.
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Upsell */}
             <div style={{
               background: "linear-gradient(135deg, #1a1a2e, #16213e)",
@@ -757,6 +902,46 @@ export default function Home() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function GithubCopyBlock({ label, icon, accent, content, mono, hint }: {
+  label: string; icon: string; accent: string; content: string;
+  mono?: boolean; hint?: string;
+}) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <div style={{ background: "#faf9f7", border: "1px solid #ede9e2", borderRadius: 12, padding: "16px 18px", borderLeft: `3px solid ${accent}` }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 14 }}>{icon}</span>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 700, color: accent, textTransform: "uppercase", letterSpacing: "0.09em" }}>{label}</span>
+          {hint && <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: "#bbb", marginLeft: 4 }}>{hint}</span>}
+        </div>
+        <button
+          onClick={copy}
+          style={{
+            fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600,
+            color: copied ? "#2d7a52" : accent, background: "transparent",
+            border: `1px solid ${copied ? "#b8e0cc" : "#ede9e2"}`, borderRadius: 6,
+            padding: "3px 10px", cursor: "pointer", transition: "all 0.2s",
+          }}
+        >{copied ? "Copied!" : "Copy"}</button>
+      </div>
+      <p style={{
+        fontFamily: mono ? "monospace" : "'DM Sans', sans-serif",
+        fontSize: mono ? 13 : 13, color: "#333", lineHeight: 1.7, margin: 0,
+        background: mono ? "#fff" : "transparent",
+        border: mono ? "1px solid #ede9e2" : "none",
+        borderRadius: mono ? 6 : 0,
+        padding: mono ? "10px 12px" : 0,
+      }}>{content}</p>
     </div>
   );
 }

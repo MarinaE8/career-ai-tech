@@ -72,6 +72,29 @@ export interface AtsScoreResult {
   suggestions: string[];
 }
 
+export interface GithubProfileInput {
+  githubUsername: string;
+  jobTitle: string;
+  company: string;
+  techStack: string;
+  achievements: string;
+  tone: string;
+}
+
+export interface PinnedRepoSuggestion {
+  type: string;
+  name: string;
+  description: string;
+}
+
+export interface GithubProfileResult {
+  profileBio: string;
+  readmeHero: string;
+  pinnedRepoSuggestions: PinnedRepoSuggestion[];
+  profileTips: string[];
+  topicsToAdd: string[];
+}
+
 export interface SalaryNegotiationInput {
   jobTitle: string;
   company: string;
