@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: generate
     description: Career document generation
+  - name: ats
+    description: ATS score analysis
 paths:
   /healthz:
     get:
@@ -44,6 +46,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GenerateResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateError"
+  /ats-score:
+    post:
+      operationId: scoreDocument
+      tags: [ats]
+      summary: Analyse a generated document against a job description for ATS fit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AtsScoreInput"
+      responses:
+        "200":
+          description: ATS score analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AtsScoreResult"
         "400":
           description: Bad request
           content:
@@ -117,3 +149,44 @@ components:
           type: string
       required:
         - error
+    AtsScoreInput:
+      type: object
+      properties:
+        document:
+          type: string
+          description: The generated career document text
+        jobDesc:
+          type: string
+          description: The job description to score against
+        atsKeywords:
+          type: string
+          description: Optional extra keywords to check
+      required:
+        - document
+        - jobDesc
+    AtsScoreResult:
+      type: object
+      properties:
+        score:
+          type: integer
+          description: ATS keyword match score 0–100
+        matched:
+          type: array
+          items:
+            type: string
+          description: Keywords found in the document
+        missing:
+          type: array
+          items:
+            type: string
+          description: Important keywords absent from the document
+        suggestions:
+          type: array
+          items:
+            type: string
+          description: Specific improvement suggestions
+      required:
+        - score
+        - matched
+        - missing
+        - suggestions

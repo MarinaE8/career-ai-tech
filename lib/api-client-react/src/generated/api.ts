@@ -17,6 +17,8 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AtsScoreInput,
+  AtsScoreResult,
   GenerateError,
   GenerateInput,
   GenerateResult,
@@ -192,4 +194,90 @@ export const useGenerateDocument = <
   TContext
 > => {
   return useMutation(getGenerateDocumentMutationOptions(options));
+};
+
+/**
+ * @summary Analyse a generated document against a job description for ATS fit
+ */
+export const getScoreDocumentUrl = () => {
+  return `/api/ats-score`;
+};
+
+export const scoreDocument = async (
+  atsScoreInput: AtsScoreInput,
+  options?: RequestInit,
+): Promise<AtsScoreResult> => {
+  return customFetch<AtsScoreResult>(getScoreDocumentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(atsScoreInput),
+  });
+};
+
+export const getScoreDocumentMutationOptions = <
+  TError = ErrorType<GenerateError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scoreDocument>>,
+    TError,
+    { data: BodyType<AtsScoreInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof scoreDocument>>,
+  TError,
+  { data: BodyType<AtsScoreInput> },
+  TContext
+> => {
+  const mutationKey = ["scoreDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof scoreDocument>>,
+    { data: BodyType<AtsScoreInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return scoreDocument(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ScoreDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof scoreDocument>>
+>;
+export type ScoreDocumentMutationBody = BodyType<AtsScoreInput>;
+export type ScoreDocumentMutationError = ErrorType<GenerateError>;
+
+/**
+ * @summary Analyse a generated document against a job description for ATS fit
+ */
+export const useScoreDocument = <
+  TError = ErrorType<GenerateError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof scoreDocument>>,
+    TError,
+    { data: BodyType<AtsScoreInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof scoreDocument>>,
+  TError,
+  { data: BodyType<AtsScoreInput> },
+  TContext
+> => {
+  return useMutation(getScoreDocumentMutationOptions(options));
 };

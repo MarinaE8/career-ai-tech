@@ -32,3 +32,23 @@ export interface GenerateResult {
 export interface GenerateError {
   error: string;
 }
+
+export interface AtsScoreInput {
+  /** The generated career document text */
+  document: string;
+  /** The job description to score against */
+  jobDesc: string;
+  /** Optional extra keywords to check */
+  atsKeywords?: string;
+}
+
+export interface AtsScoreResult {
+  /** ATS keyword match score 0–100 */
+  score: number;
+  /** Keywords found in the document */
+  matched: string[];
+  /** Important keywords absent from the document */
+  missing: string[];
+  /** Specific improvement suggestions */
+  suggestions: string[];
+}

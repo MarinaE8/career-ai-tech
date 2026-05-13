@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./atsScoreInput";
+export * from "./atsScoreResult";
 export * from "./generateError";
 export * from "./generateInput";
 export * from "./generateResult";

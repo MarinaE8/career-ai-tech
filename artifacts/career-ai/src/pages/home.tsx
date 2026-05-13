@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useGenerateDocument } from "@workspace/api-client-react";
+import { useGenerateDocument, useScoreDocument } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 
 const STEPS = ["Your Profile", "The Job", "Generate", "Result"];
@@ -43,9 +43,11 @@ export default function Home() {
   const [output, setOutput] = useState("");
   const [copied, setCopied] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [atsScore, setAtsScore] = useState<{ score: number; matched: string[]; missing: string[]; suggestions: string[] } | null>(null);
 
   const { toast } = useToast();
   const generateDoc = useGenerateDocument();
+  const scoreDoc = useScoreDocument();
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -58,12 +60,17 @@ export default function Home() {
   const update = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   const handleGenerate = () => {
+    setAtsScore(null);
     generateDoc.mutate(
       { data: { docType, tone, ...form } },
       {
         onSuccess: (data) => {
           setOutput(data.text);
           setStep(3);
+          scoreDoc.mutate(
+            { data: { document: data.text, jobDesc: form.jobDesc, atsKeywords: form.atsKeywords || undefined } },
+            { onSuccess: (s) => setAtsScore(s) }
+          );
         },
         onError: () => {
           toast({
@@ -86,8 +93,10 @@ export default function Home() {
   const handleReset = () => {
     setStep(0);
     setOutput("");
+    setAtsScore(null);
     setForm({ name: "", currentRole: "", yearsExp: "", techStack: "", achievements: "", jobTitle: "", company: "", jobDesc: "", atsKeywords: "" });
     generateDoc.reset();
+    scoreDoc.reset();
   };
 
   const can0 = form.name && form.currentRole && form.yearsExp && form.techStack && form.achievements;
@@ -454,6 +463,113 @@ export default function Home() {
               </button>
             </div>
 
+            {/* ATS Score Panel */}
+            <div data-testid="ats-score-panel" style={{
+              background: "#fff", border: "1px solid #ede9e2", borderRadius: 16,
+              padding: 24, marginBottom: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                <div>
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>ATS Score Checker</div>
+                  <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600, color: "#1a1a1a" }}>Keyword Match Analysis</div>
+                </div>
+                {scoreDoc.isPending && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#bbb" }}>
+                    <span style={{ width: 14, height: 14, border: "2px solid #f0dbb8", borderTopColor: "#d48c3c", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" }} />
+                    Analysing…
+                  </div>
+                )}
+                {atsScore && (
+                  <ScoreRing score={atsScore.score} />
+                )}
+              </div>
+
+              {scoreDoc.isPending && (
+                <div style={{ height: 3, background: "#f0ede8", borderRadius: 2, overflow: "hidden", marginBottom: 16 }}>
+                  <div style={{ height: "100%", borderRadius: 2, background: "linear-gradient(90deg, #d48c3c, #e8a84e)", animation: "pulse 1.5s ease-in-out infinite", width: "60%" }} />
+                </div>
+              )}
+
+              {atsScore && (
+                <div>
+                  {/* Score bar */}
+                  <div style={{ marginBottom: 20 }}>
+                    <div style={{ height: 8, background: "#f0ede8", borderRadius: 4, overflow: "hidden" }}>
+                      <div style={{
+                        height: "100%", borderRadius: 4,
+                        width: `${atsScore.score}%`,
+                        background: atsScore.score >= 75 ? "linear-gradient(90deg, #4caf7d, #3d9669)"
+                          : atsScore.score >= 50 ? "linear-gradient(90deg, #d48c3c, #e8a84e)"
+                          : "linear-gradient(90deg, #e57373, #c62828)",
+                        transition: "width 1s ease",
+                      }} />
+                    </div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#aaa", marginTop: 6, textAlign: "right" }}>
+                      {atsScore.score >= 75 ? "Strong match" : atsScore.score >= 50 ? "Moderate match — room to improve" : "Weak match — consider revising"}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                    {/* Matched keywords */}
+                    <div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#3d9669", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+                        Found ({atsScore.matched.length})
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {atsScore.matched.map((kw) => (
+                          <span key={kw} style={{
+                            fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 500,
+                            background: "#f0faf5", border: "1px solid #b8e0cc",
+                            color: "#2d7a52", borderRadius: 6, padding: "3px 9px",
+                          }}>{kw}</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Missing keywords */}
+                    <div>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#c4732a", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+                        Missing ({atsScore.missing.length})
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {atsScore.missing.map((kw) => (
+                          <span key={kw} style={{
+                            fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 500,
+                            background: "#fdf4e8", border: "1px solid #f0dbb8",
+                            color: "#b06820", borderRadius: 6, padding: "3px 9px",
+                          }}>{kw}</span>
+                        ))}
+                        {atsScore.missing.length === 0 && (
+                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#aaa", fontStyle: "italic" }}>None — great coverage!</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Suggestions */}
+                  {atsScore.suggestions.length > 0 && (
+                    <div style={{ background: "#faf9f7", borderRadius: 10, padding: "14px 16px", border: "1px solid #ede9e2" }}>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+                        Improvement Tips
+                      </div>
+                      {atsScore.suggestions.map((s, i) => (
+                        <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < atsScore.suggestions.length - 1 ? 10 : 0 }}>
+                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#d48c3c", fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
+                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#555", lineHeight: 1.6 }}>{s}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!scoreDoc.isPending && !atsScore && (
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#ccc", textAlign: "center", padding: "12px 0" }}>
+                  Score analysis will appear here after generation.
+                </div>
+              )}
+            </div>
+
             {/* Upsell */}
             <div style={{
               background: "linear-gradient(135deg, #1a1a2e, #16213e)",
@@ -491,6 +607,33 @@ export default function Home() {
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+function ScoreRing({ score }: { score: number }) {
+  const color = score >= 75 ? "#3d9669" : score >= 50 ? "#d48c3c" : "#e57373";
+  const r = 28;
+  const circ = 2 * Math.PI * r;
+  const dash = (score / 100) * circ;
+  return (
+    <div style={{ position: "relative", width: 72, height: 72, flexShrink: 0 }}>
+      <svg width={72} height={72} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={36} cy={36} r={r} fill="none" stroke="#f0ede8" strokeWidth={6} />
+        <circle
+          cx={36} cy={36} r={r} fill="none" stroke={color} strokeWidth={6}
+          strokeDasharray={`${dash} ${circ}`}
+          strokeLinecap="round"
+          style={{ transition: "stroke-dasharray 1s ease" }}
+        />
+      </svg>
+      <div style={{
+        position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+      }}>
+        <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700, color, lineHeight: 1 }}>{score}</span>
+        <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 9, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.05em" }}>/ 100</span>
+      </div>
     </div>
   );
 }

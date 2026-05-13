@@ -35,3 +35,26 @@ export const GenerateDocumentBody = zod.object({
 export const GenerateDocumentResponse = zod.object({
   text: zod.string(),
 });
+
+/**
+ * @summary Analyse a generated document against a job description for ATS fit
+ */
+export const ScoreDocumentBody = zod.object({
+  document: zod.string().describe("The generated career document text"),
+  jobDesc: zod.string().describe("The job description to score against"),
+  atsKeywords: zod
+    .string()
+    .optional()
+    .describe("Optional extra keywords to check"),
+});
+
+export const ScoreDocumentResponse = zod.object({
+  score: zod.number().describe("ATS keyword match score 0–100"),
+  matched: zod.array(zod.string()).describe("Keywords found in the document"),
+  missing: zod
+    .array(zod.string())
+    .describe("Important keywords absent from the document"),
+  suggestions: zod
+    .array(zod.string())
+    .describe("Specific improvement suggestions"),
+});
