@@ -16,6 +16,8 @@ tags:
     description: ATS score analysis
   - name: interview
     description: Interview preparation
+  - name: salary
+    description: Salary negotiation scripts
 paths:
   /healthz:
     get:
@@ -108,6 +110,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InterviewPrepResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateError"
+  /salary-negotiation:
+    post:
+      operationId: salaryNegotiation
+      tags: [salary]
+      summary: Generate a salary negotiation playbook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SalaryNegotiationInput"
+      responses:
+        "200":
+          description: Salary negotiation playbook
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalaryNegotiationResult"
         "400":
           description: Bad request
           content:
@@ -268,3 +300,59 @@ components:
         - matched
         - missing
         - suggestions
+    SalaryNegotiationInput:
+      type: object
+      properties:
+        jobTitle:
+          type: string
+        company:
+          type: string
+        yearsExp:
+          type: string
+        techStack:
+          type: string
+        currentSalary:
+          type: string
+        targetSalary:
+          type: string
+        jobDesc:
+          type: string
+        tone:
+          type: string
+      required:
+        - jobTitle
+        - company
+        - yearsExp
+        - techStack
+        - targetSalary
+        - jobDesc
+        - tone
+    SalaryNegotiationResult:
+      type: object
+      properties:
+        opening:
+          type: string
+        anchoring:
+          type: string
+        counteroffer:
+          type: string
+        batna:
+          type: string
+        equityAngle:
+          type: string
+        closingLines:
+          type: array
+          items:
+            type: string
+        doNots:
+          type: array
+          items:
+            type: string
+      required:
+        - opening
+        - anchoring
+        - counteroffer
+        - batna
+        - equityAngle
+        - closingLines
+        - doNots

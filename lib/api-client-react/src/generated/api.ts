@@ -25,6 +25,8 @@ import type {
   HealthStatus,
   InterviewPrepInput,
   InterviewPrepResult,
+  SalaryNegotiationInput,
+  SalaryNegotiationResult,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -368,4 +370,90 @@ export const usePrepareInterview = <
   TContext
 > => {
   return useMutation(getPrepareInterviewMutationOptions(options));
+};
+
+/**
+ * @summary Generate a salary negotiation playbook
+ */
+export const getSalaryNegotiationUrl = () => {
+  return `/api/salary-negotiation`;
+};
+
+export const salaryNegotiation = async (
+  salaryNegotiationInput: SalaryNegotiationInput,
+  options?: RequestInit,
+): Promise<SalaryNegotiationResult> => {
+  return customFetch<SalaryNegotiationResult>(getSalaryNegotiationUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(salaryNegotiationInput),
+  });
+};
+
+export const getSalaryNegotiationMutationOptions = <
+  TError = ErrorType<GenerateError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof salaryNegotiation>>,
+    TError,
+    { data: BodyType<SalaryNegotiationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof salaryNegotiation>>,
+  TError,
+  { data: BodyType<SalaryNegotiationInput> },
+  TContext
+> => {
+  const mutationKey = ["salaryNegotiation"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof salaryNegotiation>>,
+    { data: BodyType<SalaryNegotiationInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return salaryNegotiation(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SalaryNegotiationMutationResult = NonNullable<
+  Awaited<ReturnType<typeof salaryNegotiation>>
+>;
+export type SalaryNegotiationMutationBody = BodyType<SalaryNegotiationInput>;
+export type SalaryNegotiationMutationError = ErrorType<GenerateError>;
+
+/**
+ * @summary Generate a salary negotiation playbook
+ */
+export const useSalaryNegotiation = <
+  TError = ErrorType<GenerateError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof salaryNegotiation>>,
+    TError,
+    { data: BodyType<SalaryNegotiationInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof salaryNegotiation>>,
+  TError,
+  { data: BodyType<SalaryNegotiationInput> },
+  TContext
+> => {
+  return useMutation(getSalaryNegotiationMutationOptions(options));
 };

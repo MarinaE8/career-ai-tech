@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useGenerateDocument, useScoreDocument, usePrepareInterview } from "@workspace/api-client-react";
+import { useGenerateDocument, useScoreDocument, usePrepareInterview, useSalaryNegotiation } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 
 const STEPS = ["Your Profile", "The Job", "Generate", "Result"];
@@ -39,17 +39,23 @@ export default function Home() {
   const [form, setForm] = useState({
     name: "", currentRole: "", yearsExp: "", techStack: "",
     achievements: "", jobTitle: "", company: "", jobDesc: "", atsKeywords: "",
+    currentSalary: "", targetSalary: "",
   });
   const [output, setOutput] = useState("");
   const [copied, setCopied] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [atsScore, setAtsScore] = useState<{ score: number; matched: string[]; missing: string[]; suggestions: string[] } | null>(null);
   const [interviewQuestions, setInterviewQuestions] = useState<Array<{ question: string; category: string; talkingPoints: string[] }> | null>(null);
+  const [salaryPlaybook, setSalaryPlaybook] = useState<{
+    opening: string; anchoring: string; counteroffer: string;
+    batna: string; equityAngle: string; closingLines: string[]; doNots: string[];
+  } | null>(null);
 
   const { toast } = useToast();
   const generateDoc = useGenerateDocument();
   const scoreDoc = useScoreDocument();
   const interviewPrep = usePrepareInterview();
+  const salaryNeg = useSalaryNegotiation();
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -64,6 +70,7 @@ export default function Home() {
   const handleGenerate = () => {
     setAtsScore(null);
     setInterviewQuestions(null);
+    setSalaryPlaybook(null);
     generateDoc.mutate(
       { data: { docType, tone, ...form } },
       {
@@ -78,6 +85,12 @@ export default function Home() {
             { data: { jobTitle: form.jobTitle, company: form.company, jobDesc: form.jobDesc, techStack: form.techStack, tone, achievements: form.achievements } },
             { onSuccess: (r) => setInterviewQuestions(r.questions) }
           );
+          if (form.targetSalary) {
+            salaryNeg.mutate(
+              { data: { jobTitle: form.jobTitle, company: form.company, yearsExp: form.yearsExp, techStack: form.techStack, currentSalary: form.currentSalary || undefined, targetSalary: form.targetSalary, jobDesc: form.jobDesc, tone } },
+              { onSuccess: (p) => setSalaryPlaybook(p) }
+            );
+          }
         },
         onError: () => {
           toast({
@@ -102,10 +115,12 @@ export default function Home() {
     setOutput("");
     setAtsScore(null);
     setInterviewQuestions(null);
-    setForm({ name: "", currentRole: "", yearsExp: "", techStack: "", achievements: "", jobTitle: "", company: "", jobDesc: "", atsKeywords: "" });
+    setSalaryPlaybook(null);
+    setForm({ name: "", currentRole: "", yearsExp: "", techStack: "", achievements: "", jobTitle: "", company: "", jobDesc: "", atsKeywords: "", currentSalary: "", targetSalary: "" });
     generateDoc.reset();
     scoreDoc.reset();
     interviewPrep.reset();
+    salaryNeg.reset();
   };
 
   const can0 = form.name && form.currentRole && form.yearsExp && form.techStack && form.achievements;
@@ -153,7 +168,7 @@ export default function Home() {
             fontFamily: "'DM Sans', sans-serif", fontWeight: 700,
           }}>⚡</div>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700, color: "#1a1a1a" }}>
-            CareerAI<span style={{ color: "#d48c3c" }}>.tech</span>
+            techcareer<span style={{ color: "#d48c3c" }}>.ai</span>
           </div>
         </div>
         <div style={{
@@ -311,6 +326,16 @@ export default function Home() {
                 testId="input-job-desc"
               />
               <TextField label="Extra Keywords to Include (optional)" value={form.atsKeywords} onChange={(v) => update("atsKeywords", v)} placeholder="e.g. distributed systems, gRPC, CI/CD, system design" testId="input-keywords" />
+              <div style={{ borderTop: "1px dashed #ede9e2", paddingTop: 18 }}>
+                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Salary Negotiation (optional)</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  <TextField label="Current / Competing Offer" value={form.currentSalary} onChange={(v) => update("currentSalary", v)} placeholder="e.g. $180k" testId="input-current-salary" />
+                  <TextField label="Your Target Salary" value={form.targetSalary} onChange={(v) => update("targetSalary", v)} placeholder="e.g. $220k" testId="input-target-salary" />
+                </div>
+                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: "#bbb", marginTop: 8, lineHeight: 1.5 }}>
+                  Add a target to get a personalised negotiation playbook alongside your document.
+                </p>
+              </div>
             </div>
 
             {/* Tone */}
@@ -617,6 +642,83 @@ export default function Home() {
                 </div>
               )}
             </div>
+
+            {/* Salary Negotiation Playbook Panel */}
+            {(salaryNeg.isPending || salaryPlaybook || form.targetSalary) && (
+              <div data-testid="salary-panel" style={{
+                background: "#fff", border: "1px solid #ede9e2", borderRadius: 16,
+                padding: 24, marginBottom: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                  <div>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Salary Negotiation</div>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600, color: "#1a1a1a" }}>Your Negotiation Playbook</div>
+                  </div>
+                  {salaryNeg.isPending && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#bbb" }}>
+                      <span style={{ width: 14, height: 14, border: "2px solid #f0dbb8", borderTopColor: "#d48c3c", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" }} />
+                      Generating…
+                    </div>
+                  )}
+                  {salaryPlaybook && form.targetSalary && (
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: "#d48c3c" }}>{form.targetSalary}</div>
+                  )}
+                </div>
+
+                {salaryNeg.isPending && (
+                  <div style={{ height: 3, background: "#f0ede8", borderRadius: 2, overflow: "hidden", marginBottom: 16 }}>
+                    <div style={{ height: "100%", borderRadius: 2, background: "linear-gradient(90deg, #d48c3c, #e8a84e)", animation: "pulse 1.5s ease-in-out infinite", width: "55%" }} />
+                  </div>
+                )}
+
+                {salaryPlaybook && (
+                  <div style={{ display: "grid", gap: 12 }}>
+                    {[
+                      { label: "Opening Ask", icon: "🎯", content: salaryPlaybook.opening, accent: "#3b5bdb" },
+                      { label: "Anchor High", icon: "⚓", content: salaryPlaybook.anchoring, accent: "#2d7a52" },
+                      { label: "If They Come In Low", icon: "↩", content: salaryPlaybook.counteroffer, accent: "#c4732a" },
+                      { label: "Your BATNA", icon: "🛡", content: salaryPlaybook.batna, accent: "#9c36b5" },
+                      { label: "Equity / Total Comp Angle", icon: "📈", content: salaryPlaybook.equityAngle, accent: "#1a7a6e" },
+                    ].map(({ label, icon, content, accent }) => (
+                      <div key={label} style={{ background: "#faf9f7", border: "1px solid #ede9e2", borderRadius: 12, padding: "16px 18px", borderLeft: `3px solid ${accent}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                          <span style={{ fontSize: 14 }}>{icon}</span>
+                          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 700, color: accent, textTransform: "uppercase", letterSpacing: "0.09em" }}>{label}</span>
+                        </div>
+                        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#444", lineHeight: 1.7, margin: 0 }}>{content}</p>
+                      </div>
+                    ))}
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <div style={{ background: "#f3faf6", border: "1px solid #b8e0cc", borderRadius: 12, padding: "16px 18px" }}>
+                        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "#2d7a52", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 10 }}>✓ Closing Lines</div>
+                        {salaryPlaybook.closingLines.map((line, i) => (
+                          <div key={i} style={{ display: "flex", gap: 8, marginBottom: i < salaryPlaybook.closingLines.length - 1 ? 8 : 0 }}>
+                            <span style={{ color: "#2d7a52", fontWeight: 700, flexShrink: 0 }}>→</span>
+                            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#444", lineHeight: 1.6 }}>{line}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ background: "#fff4f4", border: "1px solid #ffc9c9", borderRadius: 12, padding: "16px 18px" }}>
+                        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, fontWeight: 700, color: "#c92a2a", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 10 }}>✗ Never Say This</div>
+                        {salaryPlaybook.doNots.map((dont, i) => (
+                          <div key={i} style={{ display: "flex", gap: 8, marginBottom: i < salaryPlaybook.doNots.length - 1 ? 8 : 0 }}>
+                            <span style={{ color: "#c92a2a", fontWeight: 700, flexShrink: 0 }}>✕</span>
+                            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: "#555", lineHeight: 1.6 }}>{dont}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!salaryNeg.isPending && !salaryPlaybook && form.targetSalary && (
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: "#ccc", textAlign: "center", padding: "12px 0" }}>
+                    Negotiation playbook will appear here.
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Upsell */}
             <div style={{

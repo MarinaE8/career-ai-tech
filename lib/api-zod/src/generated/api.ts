@@ -80,3 +80,27 @@ export const PrepareInterviewResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * @summary Generate a salary negotiation playbook
+ */
+export const SalaryNegotiationBody = zod.object({
+  jobTitle: zod.string(),
+  company: zod.string(),
+  yearsExp: zod.string(),
+  techStack: zod.string(),
+  currentSalary: zod.string().optional(),
+  targetSalary: zod.string(),
+  jobDesc: zod.string(),
+  tone: zod.string(),
+});
+
+export const SalaryNegotiationResponse = zod.object({
+  opening: zod.string(),
+  anchoring: zod.string(),
+  counteroffer: zod.string(),
+  batna: zod.string(),
+  equityAngle: zod.string(),
+  closingLines: zod.array(zod.string()),
+  doNots: zod.array(zod.string()),
+});

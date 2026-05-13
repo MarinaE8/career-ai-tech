@@ -15,3 +15,5 @@ export * from "./healthStatus";
 export * from "./interviewPrepInput";
 export * from "./interviewPrepResult";
 export * from "./interviewQuestion";
+export * from "./salaryNegotiationInput";
+export * from "./salaryNegotiationResult";

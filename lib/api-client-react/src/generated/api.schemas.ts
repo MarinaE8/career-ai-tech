@@ -71,3 +71,24 @@ export interface AtsScoreResult {
   /** Specific improvement suggestions */
   suggestions: string[];
 }
+
+export interface SalaryNegotiationInput {
+  jobTitle: string;
+  company: string;
+  yearsExp: string;
+  techStack: string;
+  currentSalary?: string;
+  targetSalary: string;
+  jobDesc: string;
+  tone: string;
+}
+
+export interface SalaryNegotiationResult {
+  opening: string;
+  anchoring: string;
+  counteroffer: string;
+  batna: string;
+  equityAngle: string;
+  closingLines: string[];
+  doNots: string[];
+}
