@@ -1,0 +1,370 @@
+import { useState, useRef } from "react";
+
+const STEPS = ["Your Stack", "The Role", "Generate", "Output"];
+
+const DOC_TYPES = [
+  { id: "cover", label: "Cover Letter", icon: "✉️", desc: "Tailored, ATS-optimised" },
+  { id: "resume", label: "Resume Summary", icon: "⚡", desc: "Punchy 5-line profile" },
+  { id: "linkedin", label: "LinkedIn About", icon: "🔗", desc: "Human, not corporate" },
+];
+
+const TONES = [
+  { id: "faang", label: "FAANG-Ready", sub: "Impact-driven, metric-heavy" },
+  { id: "startup", label: "Startup Energy", sub: "Scrappy, ownership mindset" },
+  { id: "senior", label: "Senior/Staff", sub: "Strategic, systems thinker" },
+  { id: "pivot", label: "Career Pivot", sub: "Transferable skills focus" },
+];
+
+const ROLES = [
+  "Software Engineer", "Senior SWE", "Staff Engineer", "Frontend Engineer",
+  "Backend Engineer", "Full-Stack Engineer", "ML/AI Engineer", "Data Engineer",
+  "DevOps/SRE", "Platform Engineer", "Engineering Manager", "Product Manager",
+  "Data Scientist", "Security Engineer", "Mobile Engineer", "Other"
+];
+
+export default function TechCareerAI() {
+  const [step, setStep] = useState(0);
+  const [docType, setDocType] = useState("cover");
+  const [tone, setTone] = useState("faang");
+  const [form, setForm] = useState({
+    name: "", currentRole: "", yearsExp: "", techStack: "",
+    achievements: "", jobTitle: "", company: "", jobDesc: "", atsKeywords: "",
+  });
+  const [output, setOutput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [loadingMsg, setLoadingMsg] = useState(0);
+
+  const loadingMsgs = [
+    "Parsing your tech stack…",
+    "Optimising for ATS filters…",
+    "Injecting the right keywords…",
+    "Crafting your narrative…",
+    "Final polish…",
+  ];
+
+  const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const buildPrompt = () => {
+    const toneInstructions = {
+      faang: "Write like a FAANG-level candidate. Use strong action verbs (architected, scaled, shipped, drove, reduced). Include metrics and impact wherever possible. Sound confident and results-oriented. This person has worked at top-tier tech companies.",
+      startup: "Write with startup energy. Emphasise ownership, bias for action, wearing many hats, and moving fast. Sound like a builder who thrives in ambiguity. Less corporate, more human.",
+      senior: "Write for a senior or staff-level engineer. Emphasise technical leadership, cross-functional impact, systems thinking, mentorship, and strategic vision beyond just coding.",
+      pivot: "This person is pivoting into a new tech role. Reframe their existing experience as transferable. Draw parallels cleverly. Sound confident about the transition, not apologetic.",
+    };
+
+    const docInstructions = {
+      cover: `Write a 3-paragraph ATS-optimised cover letter. 
+- Para 1: Strong hook that names the company and role, shows genuine interest
+- Para 2: 2-3 concrete achievements with metrics, tied directly to job requirements  
+- Para 3: Forward-looking close, specific to the company, with a clear CTA
+Format: Greeting, 3 paragraphs, professional sign-off. No "[Your Name]" placeholders — use the real name.`,
+      resume: `Write a 4-5 sentence resume summary / professional profile.
+- Start with a strong identity statement (who they are, years of experience, specialisation)
+- 2-3 sentences of key achievements and impact with numbers
+- End with what they bring to the next role
+No bullet points. Flowing sentences. ATS-friendly with the right keywords from the job description.`,
+      linkedin: `Write a LinkedIn About section in first person.
+- Hook opening line that stops the scroll (not "I am a passionate engineer...")
+- Paragraph about what they build and their technical identity
+- Paragraph about key wins and impact
+- Short closing line about what they're looking for now
+Conversational, human, memorable. Not a resume dump.`,
+    };
+
+    return `You are an expert tech career coach and professional writer specialising in helping software engineers and tech professionals land jobs at top companies.
+
+TONE DIRECTION: ${toneInstructions[tone]}
+
+CANDIDATE INFO:
+- Name: ${form.name}
+- Current/Target Role: ${form.currentRole}
+- Years of Experience: ${form.yearsExp}
+- Tech Stack: ${form.techStack}
+- Key Achievements: ${form.achievements}
+
+TARGET JOB:
+- Job Title: ${form.jobTitle}
+- Company: ${form.company}
+- Job Description: ${form.jobDesc}
+- ATS Keywords to include: ${form.atsKeywords || "extract from job description above"}
+
+DOCUMENT TO WRITE: ${DOC_TYPES.find(d => d.id === docType)?.label}
+
+INSTRUCTIONS:
+${docInstructions[docType]}
+
+CRITICAL RULES:
+- Never use filler phrases like "I am passionate about" or "I am excited to" 
+- Never use the word "leverage" or "synergy"
+- Every claim should feel earned, not generic
+- Use the candidate's actual tech stack naturally
+- Mirror the language of the job description for ATS matching
+- Sound like a real person, not a template
+
+Write ONLY the document. No commentary, no explanation, no preamble.`;
+  };
+
+  const generate = async () => {
+    setLoading(true);
+    setOutput("");
+    setLoadingMsg(0);
+
+    const interval = setInterval(() => {
+      setLoadingMsg(m => (m + 1) % loadingMsgs.length);
+    }, 1200);
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{ role: "user", content: buildPrompt() }],
+        }),
+      });
+      const data = await res.json();
+      const text = data.content?.map(b => b.text || "").join("") || "Error generating. Please try again.";
+      setOutput(text);
+      setStep(3);
+    } catch {
+      setOutput("Something went wrong. Please try again.");
+      setStep(3);
+    }
+    clearInterval(interval);
+    setLoading(false);
+  };
+
+  const copy = () => {
+    navigator.clipboard.writeText(output);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const reset = () => { setStep(0); setOutput(""); setForm({ name:"",currentRole:"",yearsExp:"",techStack:"",achievements:"",jobTitle:"",company:"",jobDesc:"",atsKeywords:"" }); };
+
+  const can0 = form.name && form.currentRole && form.yearsExp && form.techStack && form.achievements;
+  const can1 = form.jobTitle && form.company && form.jobDesc;
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      background: "#060608",
+      color: "#e2e8f0",
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+    }}>
+      {/* Animated grid background */}
+      <div style={{
+        position: "fixed", inset: 0, zIndex: 0,
+        backgroundImage: `
+          linear-gradient(rgba(0,255,128,0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0,255,128,0.03) 1px, transparent 1px)
+        `,
+        backgroundSize: "40px 40px",
+        pointerEvents: "none",
+      }} />
+
+      {/* Glow orb */}
+      <div style={{
+        position: "fixed", top: "20%", right: "10%", width: 400, height: 400,
+        background: "radial-gradient(circle, rgba(0,255,128,0.06) 0%, transparent 70%)",
+        borderRadius: "50%", pointerEvents: "none", zIndex: 0,
+      }} />
+
+      <div style={{ position: "relative", zIndex: 1 }}>
+        {/* Header */}
+        <header style={{
+          borderBottom: "1px solid #0f2a1a",
+          padding: "16px 32px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          background: "rgba(6,6,8,0.9)", backdropFilter: "blur(12px)",
+          position: "sticky", top: 0, zIndex: 10,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+< truncated lines 186-375 >
+                  border: "1px solid rgba(0,255,128,0.4)",
+                  color: "#00ff80", fontFamily: "monospace", fontSize: 13, fontWeight: 700,
+                  letterSpacing: "0.05em", transition: "all 0.2s",
+                }}>
+                  {loading ? `> ${loadingMsgs[loadingMsg]}` : "> run generate()"}
+                </button>
+              </div>
+
+              {loading && (
+                <div style={{ marginTop: 20 }}>
+                  <div style={{ height: 2, background: "#0f2a1a", borderRadius: 1, overflow: "hidden" }}>
+                    <div style={{
+                      height: "100%", width: "100%",
+                      background: "linear-gradient(90deg, transparent, #00ff80, transparent)",
+                      animation: "scan 1.5s linear infinite",
+                    }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 3 — Output */}
+          {step === 3 && (
+            <div>
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 11, color: "#00ff80", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 8 }}>// Output ready</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <h1 style={{ fontSize: 24, fontWeight: 700, color: "#f0faf4", margin: 0 }}>
+                    {DOC_TYPES.find(d => d.id === docType)?.label}
+                  </h1>
+                  <span style={{
+                    fontSize: 10, color: "#00ff80", background: "rgba(0,255,128,0.08)",
+                    border: "1px solid rgba(0,255,128,0.2)", padding: "3px 10px", borderRadius: 4,
+                  }}>ATS-Optimised ✓</span>
+                </div>
+                <p style={{ color: "#4a6058", fontSize: 12, marginTop: 6 }}>
+                  {form.company} · {TONES.find(t => t.id === tone)?.label} · {form.currentRole}
+                </p>
+              </div>
+
+              <div style={{
+                background: "#08100c", border: "1px solid #0f2a1a",
+                borderRadius: 8, padding: 28,
+                fontSize: 13, lineHeight: 1.9, color: "#b8d4c4",
+                whiteSpace: "pre-wrap", fontFamily: "'Georgia', serif",
+                minHeight: 200,
+              }}>
+                {output}
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap" }}>
+                <button onClick={copy} style={{
+                  flex: 2, minWidth: 140, padding: "12px 20px", borderRadius: 6, cursor: "pointer",
+                  background: copied ? "rgba(0,200,80,0.15)" : "rgba(0,255,128,0.12)",
+                  border: copied ? "1px solid rgba(0,200,80,0.5)" : "1px solid rgba(0,255,128,0.4)",
+                  color: copied ? "#00cc50" : "#00ff80",
+                  fontFamily: "monospace", fontSize: 12, fontWeight: 700, transition: "all 0.2s",
+                }}>
+                  {copied ? "> copied ✓" : "> copy_to_clipboard()"}
+                </button>
+                <button onClick={() => { setStep(2); setOutput(""); }} style={{ ...backBtn, flex: 1 }}>
+                  Regenerate
+                </button>
+                <button onClick={reset} style={{ ...backBtn, flex: 1 }}>
+                  Start Over
+                </button>
+              </div>
+
+              {/* Upsell */}
+              <div style={{
+                marginTop: 32, padding: 20, borderRadius: 8,
+                background: "linear-gradient(135deg, #08120e, #060a08)",
+                border: "1px solid #0f2a1a",
+              }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: "#00ff80", fontWeight: 700, marginBottom: 6 }}>
+                      &gt; Unlock career_ai.tech Pro
+                    </div>
+                    <div style={{ fontSize: 11, color: "#4a6058", lineHeight: 1.7 }}>
+                      Unlimited docs · ATS score checker · Interview prep · Cold email generator<br />
+                      GitHub profile optimiser · Salary negotiation scripts · Priority support
+                    </div>
+                  </div>
+                  <button style={{
+                    padding: "10px 20px", borderRadius: 6, cursor: "pointer", flexShrink: 0,
+                    background: "rgba(0,255,128,0.12)", border: "1px solid rgba(0,255,128,0.4)",
+                    color: "#00ff80", fontFamily: "monospace", fontSize: 11, fontWeight: 700,
+                    whiteSpace: "nowrap",
+                  }}>
+                    $29/mo →
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+        @keyframes scan {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        ::selection { background: rgba(0,255,128,0.2); }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #060608; }
+        ::-webkit-scrollbar-thumb { background: #0f2a1a; border-radius: 2px; }
+        textarea, input, select { caret-color: #00ff80; }
+        textarea:focus, input:focus, select:focus { outline: none; border-color: rgba(0,255,128,0.4) !important; }
+        button:hover:not(:disabled) { filter: brightness(1.15); }
+      `}</style>
+    </div>
+  );
+}
+
+// --- Sub-components ---
+function Label({ children }) {
+  return (
+    <div style={{
+      fontSize: 10, color: "#4a7060", letterSpacing: "0.12em",
+      textTransform: "uppercase", marginBottom: 8, fontFamily: "monospace",
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, placeholder, multiline, rows = 3 }) {
+  const base = {
+    width: "100%", background: "rgba(255,255,255,0.02)",
+    border: "1px solid #1a1a1a", borderRadius: 6,
+    padding: "11px 14px", color: "#c0d8cc", fontSize: 12,
+    fontFamily: "'JetBrains Mono', monospace", resize: "vertical",
+    lineHeight: 1.6, transition: "border-color 0.15s",
+  };
+  return (
+    <div>
+      <Label>{label}</Label>
+      {multiline
+        ? <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={rows} style={base} />
+        : <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ ...base, height: 42 }} />
+      }
+    </div>
+  );
+}
+
+function CtaButton({ children, onClick, disabled, style = {} }) {
+  return (
+    <button onClick={onClick} disabled={disabled} style={{
+      marginTop: 28, width: "100%", padding: "13px 20px",
+      background: disabled ? "rgba(0,255,128,0.03)" : "rgba(0,255,128,0.1)",
+      border: disabled ? "1px solid #1a1a1a" : "1px solid rgba(0,255,128,0.35)",
+      borderRadius: 6, color: disabled ? "#333" : "#00ff80",
+      fontFamily: "monospace", fontSize: 13, fontWeight: 700,
+      cursor: disabled ? "not-allowed" : "pointer",
+      letterSpacing: "0.05em", transition: "all 0.2s",
+      ...style,
+    }}>
+      {children}
+    </button>
+  );
+}
+
+const backBtn = {
+  padding: "12px 18px", borderRadius: 6, cursor: "pointer",
+  background: "transparent", border: "1px solid #1a1a1a",
+  color: "#444", fontFamily: "monospace", fontSize: 12,
+  transition: "all 0.2s",
+};
+
+const selectStyle = {
+  width: "100%", background: "rgba(255,255,255,0.02)",
+  border: "1px solid #1a1a1a", borderRadius: 6,
+  padding: "11px 14px", color: "#c0d8cc", fontSize: 12,
+  fontFamily: "'JetBrains Mono', monospace", height: 42,
+  cursor: "pointer", appearance: "none",
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2300ff80' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")`,
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right 14px center",
+};

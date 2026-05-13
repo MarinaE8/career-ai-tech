@@ -8,3 +8,27 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface GenerateInput {
+  /** cover | resume | linkedin */
+  docType: string;
+  /** faang | startup | senior | pivot */
+  tone: string;
+  name: string;
+  currentRole: string;
+  yearsExp: string;
+  techStack: string;
+  achievements: string;
+  jobTitle: string;
+  company: string;
+  jobDesc: string;
+  atsKeywords?: string;
+}
+
+export interface GenerateResult {
+  text: string;
+}
+
+export interface GenerateError {
+  error: string;
+}

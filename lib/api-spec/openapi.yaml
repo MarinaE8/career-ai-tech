@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: generate
+    description: Career document generation
 paths:
   /healthz:
     get:
@@ -24,6 +26,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /generate:
+    post:
+      operationId: generateDocument
+      tags: [generate]
+      summary: Generate a career document via AI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateInput"
+      responses:
+        "200":
+          description: Generated document text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateError"
+        "500":
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +65,55 @@ components:
           type: string
       required:
         - status
-
+    GenerateInput:
+      type: object
+      properties:
+        docType:
+          type: string
+          description: "cover | resume | linkedin"
+        tone:
+          type: string
+          description: "faang | startup | senior | pivot"
+        name:
+          type: string
+        currentRole:
+          type: string
+        yearsExp:
+          type: string
+        techStack:
+          type: string
+        achievements:
+          type: string
+        jobTitle:
+          type: string
+        company:
+          type: string
+        jobDesc:
+          type: string
+        atsKeywords:
+          type: string
+      required:
+        - docType
+        - tone
+        - name
+        - currentRole
+        - yearsExp
+        - techStack
+        - achievements
+        - jobTitle
+        - company
+        - jobDesc
+    GenerateResult:
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+        - text
+    GenerateError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error

@@ -5,18 +5,26 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  GenerateError,
+  GenerateInput,
+  GenerateResult,
+  HealthStatus,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +107,89 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Generate a career document via AI
+ */
+export const getGenerateDocumentUrl = () => {
+  return `/api/generate`;
+};
+
+export const generateDocument = async (
+  generateInput: GenerateInput,
+  options?: RequestInit,
+): Promise<GenerateResult> => {
+  return customFetch<GenerateResult>(getGenerateDocumentUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateInput),
+  });
+};
+
+export const getGenerateDocumentMutationOptions = <
+  TError = ErrorType<GenerateError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateDocument>>,
+    TError,
+    { data: BodyType<GenerateInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateDocument>>,
+  TError,
+  { data: BodyType<GenerateInput> },
+  TContext
+> => {
+  const mutationKey = ["generateDocument"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateDocument>>,
+    { data: BodyType<GenerateInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateDocument(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateDocumentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateDocument>>
+>;
+export type GenerateDocumentMutationBody = BodyType<GenerateInput>;
+export type GenerateDocumentMutationError = ErrorType<GenerateError>;
+
+/**
+ * @summary Generate a career document via AI
+ */
+export const useGenerateDocument = <
+  TError = ErrorType<GenerateError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateDocument>>,
+    TError,
+    { data: BodyType<GenerateInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateDocument>>,
+  TError,
+  { data: BodyType<GenerateInput> },
+  TContext
+> => {
+  return useMutation(getGenerateDocumentMutationOptions(options));
+};

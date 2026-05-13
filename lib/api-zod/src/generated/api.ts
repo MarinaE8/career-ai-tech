@@ -14,3 +14,24 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Generate a career document via AI
+ */
+export const GenerateDocumentBody = zod.object({
+  docType: zod.string().describe("cover | resume | linkedin"),
+  tone: zod.string().describe("faang | startup | senior | pivot"),
+  name: zod.string(),
+  currentRole: zod.string(),
+  yearsExp: zod.string(),
+  techStack: zod.string(),
+  achievements: zod.string(),
+  jobTitle: zod.string(),
+  company: zod.string(),
+  jobDesc: zod.string(),
+  atsKeywords: zod.string().optional(),
+});
+
+export const GenerateDocumentResponse = zod.object({
+  text: zod.string(),
+});
