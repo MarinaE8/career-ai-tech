@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useGenerateDocument, useScoreDocument, usePrepareInterview, useSalaryNegotiation, useOptimizeGithubProfile } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
+import { generatePdf } from "@/lib/generatePdf";
 
 const STEPS = ["Your Profile", "The Job", "Generate", "Result"];
 
@@ -43,6 +44,7 @@ export default function Home() {
   });
   const [output, setOutput] = useState("");
   const [copied, setCopied] = useState(false);
+  const [pdfExporting, setPdfExporting] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [atsScore, setAtsScore] = useState<{ score: number; matched: string[]; missing: string[]; suggestions: string[] } | null>(null);
   const [interviewQuestions, setInterviewQuestions] = useState<Array<{ question: string; category: string; talkingPoints: string[] }> | null>(null);
@@ -491,7 +493,7 @@ export default function Home() {
               {output}
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginBottom: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
               <button
                 data-testid="button-copy"
                 onClick={handleCopy}
@@ -524,6 +526,33 @@ export default function Home() {
                 New Doc
               </button>
             </div>
+            <button
+              data-testid="button-download-pdf"
+              disabled={pdfExporting}
+              onClick={() => {
+                setPdfExporting(true);
+                try {
+                  generatePdf({ docType, tone, name: form.name, jobTitle: form.jobTitle, company: form.company, output, atsScore });
+                } finally {
+                  setPdfExporting(false);
+                }
+              }}
+              style={{
+                width: "100%", padding: "12px 20px", borderRadius: 10,
+                background: pdfExporting ? "#f5f3ef" : "#fff",
+                border: "1.5px solid #ede9e2", color: "#555",
+                fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                cursor: pdfExporting ? "not-allowed" : "pointer",
+                marginBottom: 24, transition: "all 0.2s",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+              }}
+            >
+              {pdfExporting
+                ? <><span style={{ width: 14, height: 14, border: "2px solid #e0dbd4", borderTopColor: "#d48c3c", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" }} /> Generating PDF…</>
+                : <><span style={{ fontSize: 16 }}>⬇</span> Download as PDF</>
+              }
+            </button>
 
             {/* ATS Score Panel */}
             <div data-testid="ats-score-panel" style={{

@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
-    "@fontsource/jetbrains-mono": "^5.2.8"
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "jspdf": "^4.2.1"
   }
 }
