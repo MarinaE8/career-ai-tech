@@ -75,6 +75,7 @@ export default function Home() {
     name: "", email: "", phone: "", location: "", linkedin: "",
     title: "", summary: "",
     skills: "", certifications: "", languages: "",
+    targetJobDesc: "", targetKeywords: "",
   });
   const [jobs, setJobs] = useState([emptyJob()]);
   const [education, setEducation] = useState([emptyEdu()]);
@@ -82,6 +83,7 @@ export default function Home() {
   const [resumeCopied, setResumeCopied] = useState(false);
   const [resumePdfExporting, setResumePdfExporting] = useState(false);
   const [resumeLoadingStep, setResumeLoadingStep] = useState(0);
+  const [resumeAtsScore, setResumeAtsScore] = useState<{ score: number; matched: string[]; missing: string[]; suggestions: string[] } | null>(null);
 
   // ── Hooks ─────────────────────────────────────────────────────────────────
   const { toast } = useToast();
@@ -91,6 +93,7 @@ export default function Home() {
   const salaryNeg = useSalaryNegotiation();
   const githubOpt = useOptimizeGithubProfile();
   const buildResume = useBuildResume();
+  const resumeScoreDoc = useScoreDocument();
 
   // ── Docs loading animation ────────────────────────────────────────────────
   useEffect(() => {
@@ -170,6 +173,7 @@ export default function Home() {
   const removeEdu = (i: number) => setEducation((es) => es.filter((_, j) => j !== i));
 
   const handleBuildResume = () => {
+    setResumeAtsScore(null);
     buildResume.mutate(
       {
         data: {
@@ -185,7 +189,16 @@ export default function Home() {
         },
       },
       {
-        onSuccess: (data) => { setResumeOutput(data.text); setResumeStep(3); },
+        onSuccess: (data) => {
+          setResumeOutput(data.text);
+          setResumeStep(3);
+          if (resumeForm.targetJobDesc) {
+            resumeScoreDoc.mutate(
+              { data: { document: data.text, jobDesc: resumeForm.targetJobDesc, atsKeywords: resumeForm.targetKeywords || undefined } },
+              { onSuccess: (s) => setResumeAtsScore(s) }
+            );
+          }
+        },
         onError: () => {
           toast({ title: "Generation failed", description: "Something went wrong. Please try again.", variant: "destructive" });
         },
@@ -194,8 +207,9 @@ export default function Home() {
   };
 
   const handleResumeReset = () => {
-    setResumeStep(0); setResumeOutput(""); buildResume.reset();
-    setResumeForm({ name: "", email: "", phone: "", location: "", linkedin: "", title: "", summary: "", skills: "", certifications: "", languages: "" });
+    setResumeStep(0); setResumeOutput(""); setResumeAtsScore(null);
+    buildResume.reset(); resumeScoreDoc.reset();
+    setResumeForm({ name: "", email: "", phone: "", location: "", linkedin: "", title: "", summary: "", skills: "", certifications: "", languages: "", targetJobDesc: "", targetKeywords: "" });
     setJobs([emptyJob()]); setEducation([emptyEdu()]);
     setMode(null);
   };
@@ -786,6 +800,19 @@ export default function Home() {
                   <TextField label="Certifications (optional)" value={resumeForm.certifications} onChange={(v) => updateResume("certifications", v)} placeholder="e.g. AWS Solutions Architect, Google Cloud Professional" />
                   <TextField label="Languages (optional)" value={resumeForm.languages} onChange={(v) => updateResume("languages", v)} placeholder="e.g. English (native), Spanish (conversational)" />
                 </div>
+                {/* Optional: target job for ATS scoring */}
+                <div style={{ borderTop: "1px dashed #ede9e2", paddingTop: 20, marginTop: 8, display: "grid", gap: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.1em" }}>ATS Score Check (optional)</div>
+                    <div style={{ fontSize: 10, background: "#fdf4e8", border: "1px solid #f0dbb8", color: "#c4732a", borderRadius: 10, padding: "2px 8px", fontWeight: 600 }}>new</div>
+                  </div>
+                  <p style={{ fontSize: 12, color: "#bbb", lineHeight: 1.55, marginTop: -6 }}>Paste a job description and we'll score your resume against it immediately after generating — showing matched keywords, gaps, and suggestions.</p>
+                  <TextField label="Target Job Description" value={resumeForm.targetJobDesc} onChange={(v) => updateResume("targetJobDesc", v)}
+                    placeholder={"Paste the job posting here — we'll run an ATS keyword analysis on your resume automatically."}
+                    multiline rows={5} />
+                  <TextField label="Extra Keywords to Target (optional)" value={resumeForm.targetKeywords} onChange={(v) => updateResume("targetKeywords", v)}
+                    placeholder="e.g. distributed systems, Kubernetes, system design" />
+                </div>
                 <div style={{ display: "flex", gap: 10, marginTop: 28 }}>
                   <button onClick={() => setResumeStep(1)} className="btn-back" style={backBtnSt}>← Back</button>
                   <PrimaryButton onClick={handleBuildResume} disabled={buildResume.isPending || !canR2} style={{ flex: 1, marginTop: 0 }}>
@@ -844,6 +871,70 @@ export default function Home() {
                 <button disabled={resumePdfExporting} onClick={() => { setResumePdfExporting(true); try { generatePdf({ docType: "resume-full", tone: resumeTone, name: resumeForm.name, jobTitle: resumeForm.title, company: "", output: resumeOutput, atsScore: null }); } finally { setResumePdfExporting(false); } }} style={{ width: "100%", padding: "12px 20px", borderRadius: 10, background: "#fff", border: "1.5px solid #ede9e2", color: "#555", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer", marginBottom: 24, boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>
                   {resumePdfExporting ? <><span style={{ width: 14, height: 14, border: "2px solid #e0dbd4", borderTopColor: "#d48c3c", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" }} /> Generating PDF…</> : <><span>⬇</span> Download as PDF</>}
                 </button>
+
+                {/* ATS Score Panel */}
+                {(resumeScoreDoc.isPending || resumeAtsScore || resumeForm.targetJobDesc) && (
+                  <div style={{ background: "#fff", border: "1px solid #ede9e2", borderRadius: 16, padding: 24, marginBottom: 24, boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>ATS Score Checker</div>
+                        <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 600, color: "#1a1a1a" }}>Keyword Match Analysis</div>
+                      </div>
+                      {resumeScoreDoc.isPending && (
+                        <span style={{ fontSize: 12, color: "#bbb", display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ width: 14, height: 14, border: "2px solid #f0dbb8", borderTopColor: "#d48c3c", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" }} />
+                          Analysing…
+                        </span>
+                      )}
+                      {resumeAtsScore && <ScoreRing score={resumeAtsScore.score} />}
+                    </div>
+                    {resumeScoreDoc.isPending && (
+                      <div style={{ height: 3, background: "#f0ede8", borderRadius: 2, overflow: "hidden", marginBottom: 16 }}>
+                        <div style={{ height: "100%", borderRadius: 2, background: "linear-gradient(90deg, #d48c3c, #e8a84e)", animation: "pulse 1.5s ease-in-out infinite", width: "60%" }} />
+                      </div>
+                    )}
+                    {resumeAtsScore && (
+                      <div>
+                        <div style={{ marginBottom: 20 }}>
+                          <div style={{ height: 8, background: "#f0ede8", borderRadius: 4, overflow: "hidden" }}>
+                            <div style={{ height: "100%", borderRadius: 4, width: `${resumeAtsScore.score}%`, background: resumeAtsScore.score >= 75 ? "linear-gradient(90deg, #4caf7d, #3d9669)" : resumeAtsScore.score >= 50 ? "linear-gradient(90deg, #d48c3c, #e8a84e)" : "linear-gradient(90deg, #e57373, #c62828)", transition: "width 1s ease" }} />
+                          </div>
+                          <div style={{ fontSize: 11, color: "#aaa", marginTop: 6, textAlign: "right" }}>
+                            {resumeAtsScore.score >= 75 ? "Strong match — ready to submit" : resumeAtsScore.score >= 50 ? "Moderate match — room to improve" : "Weak match — consider revising"}
+                          </div>
+                        </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                          <div>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: "#3d9669", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Found ({resumeAtsScore.matched.length})</div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                              {resumeAtsScore.matched.map((kw) => <span key={kw} style={{ fontSize: 11, fontWeight: 500, background: "#f0faf5", border: "1px solid #b8e0cc", color: "#2d7a52", borderRadius: 6, padding: "3px 9px" }}>{kw}</span>)}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: "#c4732a", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Missing ({resumeAtsScore.missing.length})</div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                              {resumeAtsScore.missing.map((kw) => <span key={kw} style={{ fontSize: 11, fontWeight: 500, background: "#fdf4e8", border: "1px solid #f0dbb8", color: "#c4732a", borderRadius: 6, padding: "3px 9px" }}>{kw}</span>)}
+                            </div>
+                          </div>
+                        </div>
+                        {resumeAtsScore.suggestions.length > 0 && (
+                          <div style={{ background: "#faf9f7", borderRadius: 10, padding: "14px 16px" }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: "#888", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Suggestions</div>
+                            {resumeAtsScore.suggestions.map((s, i) => (
+                              <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < resumeAtsScore.suggestions.length - 1 ? 10 : 0 }}>
+                                <span style={{ fontSize: 12, color: "#d48c3c", fontWeight: 700, flexShrink: 0, marginTop: 1 }}>{i + 1}.</span>
+                                <span style={{ fontSize: 12, color: "#555", lineHeight: 1.6 }}>{s}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {!resumeScoreDoc.isPending && !resumeAtsScore && resumeForm.targetJobDesc && (
+                      <div style={{ fontSize: 13, color: "#ccc", textAlign: "center", padding: "12px 0" }}>ATS analysis will appear here after generation.</div>
+                    )}
+                  </div>
+                )}
 
                 {/* Upsell */}
                 <div style={{ background: "linear-gradient(135deg, #1a1a2e, #16213e)", borderRadius: 16, padding: 24, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }}>
