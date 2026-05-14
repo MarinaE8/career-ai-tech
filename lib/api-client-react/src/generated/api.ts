@@ -27,6 +27,7 @@ import type {
   HealthStatus,
   InterviewPrepInput,
   InterviewPrepResult,
+  ResumeBuildInput,
   SalaryNegotiationInput,
   SalaryNegotiationResult,
 } from "./api.schemas";
@@ -372,6 +373,92 @@ export const usePrepareInterview = <
   TContext
 > => {
   return useMutation(getPrepareInterviewMutationOptions(options));
+};
+
+/**
+ * @summary Build a full resume from structured data
+ */
+export const getBuildResumeUrl = () => {
+  return `/api/resume-build`;
+};
+
+export const buildResume = async (
+  resumeBuildInput: ResumeBuildInput,
+  options?: RequestInit,
+): Promise<GenerateResult> => {
+  return customFetch<GenerateResult>(getBuildResumeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(resumeBuildInput),
+  });
+};
+
+export const getBuildResumeMutationOptions = <
+  TError = ErrorType<GenerateError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof buildResume>>,
+    TError,
+    { data: BodyType<ResumeBuildInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof buildResume>>,
+  TError,
+  { data: BodyType<ResumeBuildInput> },
+  TContext
+> => {
+  const mutationKey = ["buildResume"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof buildResume>>,
+    { data: BodyType<ResumeBuildInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return buildResume(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BuildResumeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof buildResume>>
+>;
+export type BuildResumeMutationBody = BodyType<ResumeBuildInput>;
+export type BuildResumeMutationError = ErrorType<GenerateError>;
+
+/**
+ * @summary Build a full resume from structured data
+ */
+export const useBuildResume = <
+  TError = ErrorType<GenerateError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof buildResume>>,
+    TError,
+    { data: BodyType<ResumeBuildInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof buildResume>>,
+  TError,
+  { data: BodyType<ResumeBuildInput> },
+  TContext
+> => {
+  return useMutation(getBuildResumeMutationOptions(options));
 };
 
 /**

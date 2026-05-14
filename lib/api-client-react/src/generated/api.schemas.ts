@@ -72,6 +72,36 @@ export interface AtsScoreResult {
   suggestions: string[];
 }
 
+export interface ResumeJobInput {
+  title: string;
+  company: string;
+  dates: string;
+  bullets?: string;
+}
+
+export interface ResumeEducationInput {
+  degree: string;
+  school: string;
+  year: string;
+  details?: string;
+}
+
+export interface ResumeBuildInput {
+  name: string;
+  email: string;
+  phone?: string;
+  location?: string;
+  linkedin?: string;
+  title: string;
+  summary?: string;
+  jobs: ResumeJobInput[];
+  education: ResumeEducationInput[];
+  skills?: string;
+  certifications?: string;
+  languages?: string;
+  tone: string;
+}
+
 export interface GithubProfileInput {
   githubUsername: string;
   jobTitle: string;

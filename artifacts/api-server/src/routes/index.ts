@@ -5,6 +5,7 @@ import atsRouter from "./ats/index";
 import interviewRouter from "./interview/index";
 import salaryRouter from "./salary/index";
 import githubRouter from "./github/index";
+import resumeBuildRouter from "./resume-build/index";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(atsRouter);
 router.use(interviewRouter);
 router.use(salaryRouter);
 router.use(githubRouter);
+router.use(resumeBuildRouter);
 
 export default router;

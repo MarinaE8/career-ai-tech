@@ -82,6 +82,43 @@ export const PrepareInterviewResponse = zod.object({
 });
 
 /**
+ * @summary Build a full resume from structured data
+ */
+export const BuildResumeBody = zod.object({
+  name: zod.string(),
+  email: zod.string(),
+  phone: zod.string().optional(),
+  location: zod.string().optional(),
+  linkedin: zod.string().optional(),
+  title: zod.string(),
+  summary: zod.string().optional(),
+  jobs: zod.array(
+    zod.object({
+      title: zod.string(),
+      company: zod.string(),
+      dates: zod.string(),
+      bullets: zod.string().optional(),
+    }),
+  ),
+  education: zod.array(
+    zod.object({
+      degree: zod.string(),
+      school: zod.string(),
+      year: zod.string(),
+      details: zod.string().optional(),
+    }),
+  ),
+  skills: zod.string().optional(),
+  certifications: zod.string().optional(),
+  languages: zod.string().optional(),
+  tone: zod.string(),
+});
+
+export const BuildResumeResponse = zod.object({
+  text: zod.string(),
+});
+
+/**
  * @summary Generate GitHub profile optimization suggestions
  */
 export const OptimizeGithubProfileBody = zod.object({
