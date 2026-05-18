@@ -336,7 +336,7 @@ Write the complete resume now.`;
             display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13,
           }}>⚡</div>
           <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: "#1a1a1a" }}>
-            TechCareer<span style={{ color: "#d48c3c" }}>.tech</span>
+            TechCareer<span style={{ color: "#d48c3c" }}>.ai</span>
           </span>
         </div>
         <UsageBadge gens={gens} isPro={isPro} onUpgrade={() => setShowPaywall(true)} />
