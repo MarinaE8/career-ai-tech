@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const STRIPE_LINK = "https://buy.stripe.com/your_link_here";
+const STRIPE_LINK = "https://buy.stripe.com/3cI9AVbnXc6f0fTccj2wU00";
 const FREE_LIMIT = 3;
 const STORAGE_KEY = "careerAI_gens";
 
